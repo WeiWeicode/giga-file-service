@@ -1,7 +1,7 @@
 # GigaNexus 附件服務 — 舊系統 UUID 對照、同步與搬遷
 
 > 本文件自 [PRD.md](PRD.md) §7 拆出(原 FILE-PLAN §10),為該主題的唯一維護來源;PRD 僅保留摘要與連結。
-> 對應 PRD 版本:**v0.7**(2026-10-08)。相關決策:D8(對照表)、D9(舊服務不動)、D13(NAS 備份拉取)、D14(166 同步)。舊系統現況見 [LEGACY-INVENTORY.md](LEGACY-INVENTORY.md)。
+> 對應 PRD 版本:**v0.8**(2026-10-08)。相關決策:D8(對照表)、D9(舊服務不動)、D13(NAS 備份拉取)、D14(166 同步)。舊系統現況見 [LEGACY-INVENTORY.md](LEGACY-INVENTORY.md)。
 > 所有舊來源(166、190 `SDSFILES`、NAS `CP` 與舊服務備份目錄)對本專案一律**唯讀**(`AGENT.md` §7.1)。
 
 ---
@@ -48,7 +48,7 @@
 flowchart LR
     P["166 PortalSolar<br/>原檔名(正本,舊系統持續上傳)"] -->|"唯讀 cifs,掃描 + 讀取"| W["file-api 同步工作<br/>(WSL 容器)"]
     W -->|"① 原檔名鏡像"| N[("NAS giga-files/legacy/portalsolar")]
-    W -->|"② 配 UUID,寫 file_object + legacy_file_map"| D[("giganexus_file")]
+    W -->|"② 配 UUID,寫 file_object + legacy_file_map"| D[("giganexus_gw<br/>schema file_svc")]
     W -->|"③ UUID 副本 + SHA-256 驗證"| V[("WSL /srv/giga-files/{env}")]
     D -.->|"定期對照"| Q[("PortalSolar / LOS 等存檔名欄位<br/>(唯讀)")]
 ```

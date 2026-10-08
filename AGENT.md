@@ -3,7 +3,7 @@
 > 本文件是 AI 程式助手(Claude、Gemini 等)在本專案中的行為準則,所有 AI 協作開發必須遵守。
 > 由 Gateway 專案(`giga-api-gateway-bff`)根目錄 `AGENT.md`、下游後端樣本 `samples/node-backend/AGENT.md` 與 `GigaItApp/AGENT.md` 整理合併,並依本專案調整。
 > Gateway 的規格(`../giga-api-gateway-bff/docs/`)仍是上位規範;本文件與之不一致時,**先指出差異,不要自行決定以哪一邊為準**。
-> 本專案的設計決策(D1–D16)以 **[docs/PRD.md](docs/PRD.md)** 為準,各主題見 PRD §12 文件索引,工作項目(F0–F7)見 [docs/IMPL-PLAN.md](docs/IMPL-PLAN.md);跨專案規則(相對路徑、用 BFF 路由表找 API、跨 repo 修改)見 `../giga-api-gateway-bff/AGENT.md` **§10 多專案工作區**。
+> 本專案的設計決策(D1–D17)以 **[docs/PRD.md](docs/PRD.md)** 為準,各主題見 PRD §12 文件索引,工作項目(F0–F7)見 [docs/IMPL-PLAN.md](docs/IMPL-PLAN.md);跨專案規則(相對路徑、用 BFF 路由表找 API、跨 repo 修改)見 `../giga-api-gateway-bff/AGENT.md` **§10 多專案工作區**。
 
 ---
 
@@ -45,15 +45,15 @@
 | 項目 | 內容 |
 | --- | --- |
 | 做什麼 | GigaNexus 共用的附件(檔案)服務:上傳 / 下載 / 清單 / 軟刪除 / 單據綁定;檔案存放於主機 WSL 並排程備份到 NAS;**BPM 表單附件唯讀查詢與下載**;**舊系統(GeneralBackend `filebackend` / `SMBbackend`、166 PortalSolar)檔案的 UUID 對照與同步**;舊格式相容層 |
-| 狀態 | **規劃中,尚無程式碼**。規劃文件以 [docs/PRD.md](docs/PRD.md) 為總綱(決策 D1–D16 已定案,§11 仍有待確認事項;主題文件見 §12);工作項目 F0–F7 的時程**以 NexusPlan 甘特圖為準**,文件不列日期 |
+| 狀態 | **規劃中,尚無程式碼**。規劃文件以 [docs/PRD.md](docs/PRD.md) 為總綱(決策 D1–D17 已定案,§11 仍有待確認事項;主題文件見 §12);工作項目 F0–F7 的時程**以 NexusPlan 甘特圖為準**,文件不列日期 |
 | 系統代碼 / API | `file`;新 API `/api/file/files*`、`/api/file/bpm/*`;盤點 `/api/file/inventory/*`;舊格式相容層 `/api/file/compat/{fb,smb,portal}/*`(D15) |
 | 服務代碼 / port | `file-api` / **51272**(D2 定案;**尚未登記**於 `../giga-api-gateway-bff/docs/BACKEND-GUIDE.md` §3.3,開發前先向 Gateway 負責人登記,不可自行換 port) |
 | 登入 | **後端不實作登入**,只信任 Gateway 的 `X-Internal-Token`。唯一例外:舊格式相容路由(舊前端沒有 Gateway 登入,規劃 `auth_mode = public` + Nginx 內網白名單,需 IT 核准,`docs/API.md` §4.4 規則 4) |
 | 檔案存放 | 主機 WSL `/srv/giga-files/{env}`(容器內 `/data/files`),實體路徑 `{yyyy}/{mm}/{file_uuid}`(不帶副檔名與原檔名);不放 `/mnt/c`(D5) |
 | 備份 | WSL 以 cifs 掛載 NAS `\\10.10.130.31\docker-folder`,排程補傳並驗 SHA-256(D6);NAS 上 `giga-files/{env}/` 為新服務備份,`giga-files/legacy/portalsolar/` 為 166 原檔名鏡像 |
-| 資料庫 | SQL Server 10.10.130.220:`giganexus_file`(正式)、`giganexus_file_test`(測試 + 開發),帳號分 app / migrate(D7);SQL Server 2012 限制見 `../giga-api-gateway-bff/docs/DATABASE.md` §0 |
+| 資料庫 | SQL Server 10.10.130.220:**沿用 Gateway 的 `giganexus_gw`**(正式)/ `giganexus_gw_test`(開發 + 測試)/ `giganexus_gw_poc_test`(整合測試),資料表放 schema **`file_svc`**,本服務自有帳號只授權 `file_svc`、分 app / migrate(D7);存取用 Drizzle(D17);SQL Server 2012 限制見 `../giga-api-gateway-bff/docs/DATABASE.md` §0 |
 | 畫面 | 不在本 repo:GigaItApp「Gateway 管理 › 檔案管理」選單(D16、PRD §8;F3,`../GigaItApp/`),上傳元件之後進 `@giganexus/web-kit` |
-| 工作區 | 與 `../giga-api-gateway-bff/`(上位規範、SDK、路由表)、`../GigaItApp/`(畫面與選單權限)同層;舊系統唯讀參考:`../old_PortalSolar/`、`../../GeneralBackend/`(`filebackend`、`SMBbackend`)、`../../BPM/bpmcomonent/`(舊前端 `FileUpload.vue`、`SPfileUpload.vue`)、`../../BPMbackend/`。後三者不在 GigaNexus 工作區同層,**不在你的環境時說明「未讀取」,不要猜內容** |
+| 工作區 | 與 `../giga-api-gateway-bff/`(上位規範、SDK、路由表)、`../GigaItApp/`(畫面與選單權限)同層;舊系統唯讀參考:`../old_PortalSolar/`、`../../GeneralBackend/`(`filebackend`、`SMBbackend`)、`../../BPM/bpmcomonent/`(舊前端 `FileUpload.vue`、`SPfileUpload.vue`)、`../../BPM/BPMbackend/`(BPM 附件查詢,`db/controllers/BPM/AttachmentController.js`;注意 `../../BPMbackend/` 是另一個專案)。後三者不在 GigaNexus 工作區同層,**不在你的環境時說明「未讀取」,不要猜內容** |
 | 登記 | 已加入 Gateway `AGENT.md` §10.2 專案登記表、工作區 `AGENT.md` §3 導航、`PROJECT-MAP.md` 與 `GigaNexusAIPlan/architecture/workspace.json`(2026-10-08);port 51272 **尚未**登記於 Gateway BACKEND-GUIDE §3.3。其他 repo 的修改**先說明並取得同意** |
 
 ---
@@ -107,7 +107,7 @@
 | `GW_ENV` | `dev` | `test` | `prod` |
 | 自動註冊 API | 不註冊 | 啟動時註冊為 Gateway **草稿** | 啟動時註冊為 Gateway **草稿** |
 | 機密(DB 帳密、5144 金鑰、166 / NAS 帳密) | 可由 `.env` 給值 | `*_FILE`(Docker secret) | **只接受** `*_FILE` |
-| 資料庫 | `giganexus_file_test` | `giganexus_file_test` | `giganexus_file` |
+| 資料庫(schema `file_svc`) | `giganexus_gw_test` | `giganexus_gw_test` | `giganexus_gw` |
 | `BPM_ENV`(BPM 附件環境,D10) | `test`(對 191) | `test`(對 191) | `prod`(對 190) |
 | 檔案根目錄 | 本機暫存目錄(不要寫入 `/srv/giga-files`) | `/srv/giga-files/test` | `/srv/giga-files/prod` |
 | 日誌等級預設 | `debug` | `info` | `info` |
@@ -132,7 +132,7 @@
 
 - 帳密、金鑰(DB、NAS、166 唯讀帳號、NaNa 唯讀帳號、BPM 5144 的 `X-API-Key`)**不入版控、不寫進映像檔、不貼進對話或日誌**;以 `<NAME>_FILE` 指向 Docker secret,dev 用 `.gitignore` 已涵蓋的 `.env`。
 - **AI 不開啟 `.env`、不讀取機密檔、不要求使用者貼帳密**:需要寫入主機機密時,寫成腳本(隱藏輸入)交給使用者執行。
-- BPM 5144 金鑰**只放 file-api 機密設定**(D10);`../../BPMbackend` 的註解裡有明碼金鑰,**不要複製到本專案**,也不要貼進文件或對話。
+- BPM 5144 金鑰**只放 file-api 機密設定**(D10);`../../BPM/BPMbackend` 的註解裡有明碼金鑰,**不要複製到本專案**,也不要貼進文件或對話。
 
 ### 7.3 儲存與下載安全(STORAGE、SECURITY-CHECKLIST)
 
@@ -172,7 +172,8 @@
 - SQL Server 2012:只用 2012 支援的語法(不可用 JSON 函式、`CREATE OR ALTER`、`DROP … IF EXISTS`、`STRING_AGG`、`TRIM` 等,`DATABASE.md` §0);連線設定比照 Gateway(內網 SQL Server 2012 `encrypt: false`,已有決議)。
 - 資料表與欄位 `snake_case`;`DATETIME2` 存 UTC,畫面轉台灣時間;`UNIQUEIDENTIFIER` 的值由**應用端**產生(v4),不依賴 DB。
 - 只在容器 SQL Server(2022)驗證過的項目,**不可宣稱「已在 SQL Server 2012 驗證」**。
-- 資料存取方式(Drizzle 或 `mssql` 直連)於 F1 建立骨架時依 Gateway `docs/TECH-STACK.md` 決定,決定後寫回本節。
+- **資料存取(D17)**:`file_svc.*` 用 Drizzle ORM + drizzle-kit,版本鎖定與 Gateway 相同,升版須重新驗證;舊資料庫唯讀查詢用 `mssql` 參數化 SQL(比照 Gateway `bff/src/db/external/`)。
+- **與 Gateway 共用 `giganexus_gw`**(`docs/DATABASE.md` §0.2):只讀寫 schema `file_svc`,**不碰 `gw.*`、不與 `gw.*` 建 FK**;migration 紀錄表放 `file_svc`(不可用 `drizzle` schema,Gateway 測試重設會清掉);`test:int` 只清 `file_svc`、只用 `giganexus_gw_poc_test`。
 
 ---
 
@@ -229,7 +230,7 @@
 
 | 文件 | 路徑 | 說明 |
 | --- | --- | --- |
-| **產品需求(總綱)** | `docs/PRD.md` | 概述、目標、**決策 D1–D16**、畫面(GigaItApp「Gateway 管理 › 檔案管理」)、**待確認事項(§11)**、文件索引與 FILE-PLAN 舊章節對照(§12) |
+| **產品需求(總綱)** | `docs/PRD.md` | 概述、目標、**決策 D1–D17**、畫面(GigaItApp「Gateway 管理 › 檔案管理」)、**待確認事項(§11)**、文件索引與 FILE-PLAN 舊章節對照(§12) |
 | 架構 | `docs/ARCHITECTURE.md` | 架構圖、Gateway 限制與上傳直送(D4-B) |
 | API | `docs/API.md` | §2 新 API、§3 BPM 附件、§4 舊格式相容層(規則 1–12) |
 | 資料庫 | `docs/DATABASE.md` | `file_object`、`file_access_log`、`legacy_file_map` |
@@ -249,7 +250,7 @@
 | 部署 | `../giga-api-gateway-bff/docs/DEPLOYMENT.md` | CI/CD、WSL2 Docker(§6)、機密 |
 | 前端規範 | `../giga-api-gateway-bff/docs/FRONTEND-GUIDE.md` | §7.5 畫面權限(「檔案管理」頁的選單 / Tab / 按鈕) |
 | 畫面範本 | `../GigaItApp/docs/UI-GUIDE.md` | F3「檔案管理」頁沿用 |
-| 舊系統(唯讀) | `../../GeneralBackend/`、`../old_PortalSolar/`、`../../BPM/bpmcomonent/`、`../../BPMbackend/` | 對照舊 API、欄位與呼叫端;**只讀不改**(§7.1) |
+| 舊系統(唯讀) | `../../GeneralBackend/`、`../old_PortalSolar/`、`../../BPM/bpmcomonent/`、`../../BPM/BPMbackend/` | 對照舊 API、欄位與呼叫端;**只讀不改**(§7.1) |
 | 工作區入口 | `../AGENT.md`、`../PROJECT-MAP.md` | 專案導航、主機連線、架構資料維護 |
 
 ---

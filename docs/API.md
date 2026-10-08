@@ -1,7 +1,7 @@
 # GigaNexus 附件服務 — API 規格(草案)
 
 > 本文件自 [PRD.md](PRD.md) §7 拆出(原 FILE-PLAN §8),為該主題的唯一維護來源;PRD 僅保留摘要與連結。
-> 對應 PRD 版本:**v0.7**(2026-10-08)。**尚無程式碼**;實作後以 file-api 的 OpenAPI(`/openapi.json`,自動註冊到 Gateway 路由表)為準,本文件同步更新。
+> 對應 PRD 版本:**v0.8**(2026-10-08)。**尚無程式碼**;實作後以 file-api 的 OpenAPI(`/openapi.json`,自動註冊到 Gateway 路由表)為準,本文件同步更新。
 > 通用規範見 Gateway [BACKEND-GUIDE.md](../../giga-api-gateway-bff/docs/BACKEND-GUIDE.md) §4–§5、§7.5;本專案重點見 `AGENT.md` §8。
 
 ---

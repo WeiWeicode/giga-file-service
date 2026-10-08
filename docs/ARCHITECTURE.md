@@ -1,7 +1,7 @@
 # GigaNexus 附件服務 — 整體架構
 
 > 本文件自 [PRD.md](PRD.md) §6 拆出(原 FILE-PLAN §3.6、§5),為該主題的唯一維護來源;PRD 僅保留摘要與連結。
-> 對應 PRD 版本:**v0.7**(2026-10-08)。Gateway 全域架構見 [Gateway ARCHITECTURE.md](../../giga-api-gateway-bff/docs/ARCHITECTURE.md)。
+> 對應 PRD 版本:**v0.8**(2026-10-08)。Gateway 全域架構見 [Gateway ARCHITECTURE.md](../../giga-api-gateway-bff/docs/ARCHITECTURE.md)。
 
 ---
 
@@ -18,7 +18,7 @@ flowchart LR
     F -->|"唯讀查 NoCmDocument"| BDB[("BPM NaNa<br/>190 正式 / 191 測試")]
     F -->|"X-API-Key(僅 file-api 持有)"| BFS["BPM 取檔服務 :5144<br/>190 / 191"]
     F --> V[("WSL /srv/giga-files/{env}")]
-    F --> DB[("SQL Server<br/>giganexus_file")]
+    F --> DB[("SQL Server giganexus_gw<br/>schema file_svc")]
     J["備份 / 同步排程<br/>(file-api worker)"] --> V
     J -->|"cifs"| NAS[("NAS 10.10.130.31<br/>docker-folder/giga-files/{env}")]
     J -.->|"唯讀 cifs"| L[("舊來源<br/>166 PortalSolar / NAS CP / 190 SDSFILES")]
@@ -29,7 +29,7 @@ flowchart LR
 | --- | --- | --- |
 | file-api | 上傳 / 下載 / 清單 / 綁定 / 軟刪除、BPM 附件代理、舊格式相容層、盤點查詢 | [API.md](API.md) |
 | worker(同映像) | NAS 補傳、暫存檔清除、166 同步、NAS 備份拉取 | [STORAGE.md](STORAGE.md)、[MIGRATION.md](MIGRATION.md) |
-| `giganexus_file` | 檔案主表、操作紀錄、舊系統對照 | [DATABASE.md](DATABASE.md) |
+| `giganexus_gw` schema `file_svc` | 檔案主表、操作紀錄、舊系統對照(與 Gateway 共用資料庫、不共用 schema) | [DATABASE.md](DATABASE.md) |
 | WSL `/srv/giga-files/{env}` | 實體檔(UUID 命名) | [STORAGE.md](STORAGE.md) §1 |
 | NAS `giga-files/` | 備份、166 原檔名鏡像 | [STORAGE.md](STORAGE.md) §2 |
 | GigaItApp「Gateway 管理 › 檔案管理」 | 畫面(不在本 repo) | [PRD.md](PRD.md) §8 |

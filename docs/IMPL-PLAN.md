@@ -1,6 +1,6 @@
 # GigaNexus 附件服務 — 實作計畫
 
-> 依據 [PRD.md](PRD.md) **v0.7** §10,將工作項目 F0–F7 拆解為交付物與驗收條件(原 FILE-PLAN §12)。**時程以 NexusPlan 甘特圖(工作流 W11「附件服務」)為準**,本文不列日期。
+> 依據 [PRD.md](PRD.md) **v0.8** §10,將工作項目 F0–F7 拆解為交付物與驗收條件(原 FILE-PLAN §12)。**時程以 NexusPlan 甘特圖(工作流 W11「附件服務」)為準**,本文不列日期。
 > 相關文件:[ARCHITECTURE.md](ARCHITECTURE.md)、[API.md](API.md)、[DATABASE.md](DATABASE.md)、[STORAGE.md](STORAGE.md)、[MIGRATION.md](MIGRATION.md)、[DEPLOYMENT.md](DEPLOYMENT.md)、[SECURITY-CHECKLIST.md](SECURITY-CHECKLIST.md)。
 
 ---
@@ -9,7 +9,7 @@
 
 | 項目 | 內容 |
 | --- | --- |
-| 文件版本 | v0.1(2026-10-08,自 FILE-PLAN v0.6 §12 拆出;補交付物、驗收、前置工作與甘特圖對照) |
+| 文件版本 | v0.2(2026-10-08,P3 改為在 `giganexus_gw` 建 schema `file_svc`、P4 定案 Drizzle(D7、D17));v0.1(2026-10-08,自 FILE-PLAN v0.6 §12 拆出;補交付物、驗收、前置工作與甘特圖對照) |
 
 ## 2. 進度與里程碑
 
@@ -32,8 +32,8 @@
 | --- | --- | --- | --- |
 | P1 | 建立 GitLab 專案與 remote、CI 變數、Registry 路徑 | 使用者 / Gateway 負責人 | F1 |
 | P2 | 向 Gateway 負責人登記 `file-api` 51272(BACKEND-GUIDE §3.3)與系統代碼 `file` | Gateway 負責人 | F1 |
-| P3 | 建立 `giganexus_file_test` / `giganexus_file` 與 app / migrate 帳號(D7) | 使用者執行腳本 | F1 |
-| P4 | 決定資料存取方式(Drizzle 或 `mssql` 直連,依 Gateway TECH-STACK) | Claude 提案、使用者決定 | F1 |
+| P3 | 在 `giganexus_gw_test`、`giganexus_gw_poc_test`(正式區之後在 `giganexus_gw`)建 schema `file_svc` 與本服務 app / migrate 帳號(只授權 `file_svc`,D7);Claude 寫腳本、使用者以 sa 執行 | 使用者執行腳本 | F1 |
+| P4 | ~~決定資料存取方式~~ ✅ 已定案:Drizzle ORM(版本同 Gateway)+ 舊資料庫 `mssql` 唯讀(D17) | — | — |
 | P5 | NAS 子目錄與服務帳號(PRD §11 #4) | IT | F2 |
 | P6 | NaNa 唯讀帳號、5144 金鑰更換(PRD §11 #8) | BPM 負責人 | F6 |
 | P7 | 166、190 `SDSFILES`、NAS `CP` 唯讀存取(PRD §11 #3、#11、#12) | IT | F0 |
@@ -51,7 +51,7 @@
 
 ### F1 file-api 主體
 
-- 交付物:repo 骨架(Fastify 5 + TypeScript,比照 itapp-api / `samples/node-backend`)、`docs/PROJECT-MAP.md` 更新、DB migration([DATABASE.md](DATABASE.md))、[API.md](API.md) §2 上傳 / 下載 / 清單 / 綁定 / 刪除、暫存清除排程、OpenAPI(含 `x-permission`、`x-gherkin`)、自動註冊、giga-observe 接入、Dockerfile 與 CI。
+- 交付物:repo 骨架(Fastify 5 + TypeScript,比照 itapp-api / `samples/node-backend`)、`docs/PROJECT-MAP.md` 更新、Drizzle schema 與 migration(schema `file_svc`、紀錄表分開,[DATABASE.md](DATABASE.md) §0.2)、[API.md](API.md) §2 上傳 / 下載 / 清單 / 綁定 / 刪除、暫存清除排程、OpenAPI(含 `x-permission`、`x-gherkin`)、自動註冊、giga-observe 接入、Dockerfile 與 CI。
 - 驗收:`npm test`、`typecheck`、`build` 通過;測試區經 Gateway 實測上傳 / 下載(含中文檔名)/ 刪除;50 MB 直送路徑(需 Gateway Nginx 變更,[DEPLOYMENT.md](DEPLOYMENT.md) §4);SECURITY-CHECKLIST S1–S13、S19–S21 更新狀態。
 
 ### F2 NAS 備份
@@ -88,7 +88,7 @@
 | 層級 | 內容 |
 | --- | --- |
 | 單元 | 路徑安全、檔案類型、檔名編碼、相容層欄位轉換、BPM 目錄規則、同步狀態線 |
-| 整合 | `giganexus_file_test`(`test:int`)+ 暫存目錄;NAS 與 166 以本機目錄模擬 |
+| 整合 | `giganexus_gw_poc_test` 的 schema `file_svc`(`test:int` 只清空 `file_svc`,不可指向 `giganexus_gw_test`)+ 暫存目錄;NAS 與 166 以本機目錄模擬 |
 | E2E | 測試區經 Gateway(含 Nginx 直送、權限、相容層) |
 | 行為規格 | Gherkin 寫在 OpenAPI `x-gherkin`,另於 [Gherkin/](Gherkin/README.md) 保留驗收場景;對照 [Gherkin/TEST-MAP.md](Gherkin/TEST-MAP.md) |
 

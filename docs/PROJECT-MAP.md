@@ -18,10 +18,10 @@ giga-file-service/
 ├─ README.md                  定位摘要
 ├─ .gitignore                 機密、檔案實體、node 產物
 └─ docs/
-   ├─ PRD.md                  總綱:概述、目標、決策 D1–D16、畫面、待確認事項、文件索引
+   ├─ PRD.md                  總綱:概述、目標、決策 D1–D17、畫面、待確認事項、文件索引
    ├─ ARCHITECTURE.md         架構圖、Gateway 限制與上傳直送(D4-B)
    ├─ API.md                  新 API、BPM 附件、舊格式相容層(規則 1–12)
-   ├─ DATABASE.md             file_object、file_access_log、legacy_file_map
+   ├─ DATABASE.md             giganexus_gw schema file_svc:file_object、file_access_log、legacy_file_map(Drizzle)
    ├─ STORAGE.md              WSL 存放、NAS 備份
    ├─ MIGRATION.md            對照流程、NAS 備份拉取、166 同步
    ├─ LEGACY-INVENTORY.md     舊系統盤點與使用統計
@@ -42,7 +42,7 @@ giga-file-service/
 │  ├─ routes/                 新 API(API §2、§3):只做 schema、權限宣告、格式轉換
 │  ├─ compat/                 舊格式相容層(API §4),與新 API 隔離
 │  ├─ modules/                核心邏輯(不直接依賴 Fastify):storage、backup、bpm、legacy、inventory
-│  ├─ db/                     資料存取與 migration
+│  ├─ db/                     Drizzle schema(file_svc)、migration、external/(舊資料庫唯讀 mssql)
 │  └─ workers/                NAS 補傳、暫存清除、166 同步、NAS 拉取
 ├─ test/                      unit/、integration/、e2e/(與 src 平行)
 └─ deploy/                    Docker Compose、env 範例

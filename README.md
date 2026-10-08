@@ -10,7 +10,7 @@ GigaNexus 共用的附件(檔案)服務:上傳、下載、清單、軟刪除,檔
 | 服務代碼 / port | `file-api` / 51272(BACKEND-GUIDE §3.2「入口網 / 共用服務」區段,尚待登記) |
 | 系統代碼 / API | `file`,`/api/file/*`;舊格式相容層 `/api/file/compat/*` |
 | 檔案存放 | 主機 WSL 檔案系統 `/srv/giga-files/{env}`;排程備份到 NAS `\\10.10.130.31\docker-folder` |
-| 資料庫 | SQL Server 10.10.130.220:`giganexus_file`(正式)、`giganexus_file_test`(測試 + 開發) |
+| 資料庫 | SQL Server 10.10.130.220:沿用 Gateway 的 `giganexus_gw` / `giganexus_gw_test`,schema `file_svc`(Drizzle ORM) |
 | BPM 附件 | 唯讀查詢 / 下載:查 NaNa `NoCmDocument`,經 BPM 主機取檔服務 :5144(測試 191、正式 190) |
 | 舊系統 | GeneralBackend `filebackend`(5124)、`SMBbackend`(5125)、old_PortalSolar 持續沿用,盤點後再決策 |
 

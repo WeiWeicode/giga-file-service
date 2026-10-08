@@ -1,7 +1,7 @@
 # GigaNexus 附件服務 — 儲存與備份
 
 > 本文件自 [PRD.md](PRD.md) §7 拆出(原 FILE-PLAN §6),為該主題的唯一維護來源;PRD 僅保留摘要與連結。
-> 對應 PRD 版本:**v0.7**(2026-10-08)。相關決策:D5(WSL 存放)、D6(NAS 排程補傳)。主機掛載與機密見 [DEPLOYMENT.md](DEPLOYMENT.md) §3、§5。
+> 對應 PRD 版本:**v0.8**(2026-10-08)。相關決策:D5(WSL 存放)、D6(NAS 排程補傳)。主機掛載與機密見 [DEPLOYMENT.md](DEPLOYMENT.md) §3、§5。
 
 ---
 

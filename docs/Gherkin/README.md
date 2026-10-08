@@ -1,6 +1,6 @@
 # GigaNexus 附件服務 — Gherkin 行為規格
 
-> 以 Gherkin(繁體中文關鍵字,`# language: zh-TW`)描述附件服務的驗收行為,對應 [PRD.md](../PRD.md) **v0.7** 與 [IMPL-PLAN.md](../IMPL-PLAN.md) 的工作項目。
+> 以 Gherkin(繁體中文關鍵字,`# language: zh-TW`)描述附件服務的驗收行為,對應 [PRD.md](../PRD.md) **v0.8** 與 [IMPL-PLAN.md](../IMPL-PLAN.md) 的工作項目。
 > 比照 Gateway(2026-10-02 決定):**不引入 Cucumber 步驟定義**。每支 API 的場景寫在 OpenAPI `x-gherkin`(自動註冊到 Gateway 路由表);本目錄保留跨 API 的驗收場景,自動化以 Vitest 執行,對照見 [TEST-MAP.md](TEST-MAP.md)。
 
 ## 檔案一覽(預計)

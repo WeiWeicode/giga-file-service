@@ -1,6 +1,6 @@
 # GigaNexus 附件服務 — 部署與設定
 
-> 對應 PRD 版本:**v0.7**(2026-10-08)。**尚未部署、尚未建立 GitLab remote**;本文件記錄規劃,F1 建立骨架與 CI 後改為實際步驟。
+> 對應 PRD 版本:**v0.8**(2026-10-08)。**尚未部署、尚未建立 GitLab remote**;本文件記錄規劃,F1 建立骨架與 CI 後改為實際步驟。
 > 通用流程以 Gateway [DEPLOYMENT.md](../../giga-api-gateway-bff/docs/DEPLOYMENT.md)(CI/CD、WSL2 Docker §6、機密)與 [BACKEND-GUIDE.md](../../giga-api-gateway-bff/docs/BACKEND-GUIDE.md) §3 為準。
 
 ---
@@ -12,7 +12,7 @@
 | `GW_ENV` | `dev` | `test` | `prod` |
 | 自動註冊 API | 不註冊 | 啟動時註冊為 Gateway **草稿** | 啟動時註冊為 Gateway **草稿** |
 | 機密(DB 帳密、5144 金鑰、166 / NAS 帳密) | 可由 `.env` 給值 | `*_FILE`(Docker secret) | **只接受** `*_FILE` |
-| 資料庫 | `giganexus_file_test` | `giganexus_file_test` | `giganexus_file` |
+| 資料庫(schema `file_svc`) | `giganexus_gw_test` | `giganexus_gw_test` | `giganexus_gw` |
 | `BPM_ENV`(D10) | `test`(對 191) | `test`(對 191) | `prod`(對 190) |
 | 檔案根目錄 | 本機暫存目錄(不要寫入 `/srv/giga-files`) | `/srv/giga-files/test` | `/srv/giga-files/prod` |
 | 日誌等級預設 | `debug` | `info` | `info` |
@@ -62,7 +62,7 @@
 
 | 機密 | 用途 | 寫入方式 |
 | --- | --- | --- |
-| `giganexus_file(_test)` app / migrate 帳密 | 資料庫 | 使用者執行腳本(隱藏輸入)寫入主機機密檔 |
+| 本服務 app / migrate 帳密(只授權 schema `file_svc`;測試與正式分開,比照 Gateway) | 資料庫 | 使用者執行腳本(隱藏輸入)建立 LOGIN 與授權、寫入主機機密檔 |
 | NAS 服務帳號 | cifs 掛載 credentials 檔(權限 600) | 同上 |
 | 166 唯讀帳號 | 166 同步 | 同上 |
 | NaNa 唯讀帳號 | BPM 附件查詢 | 同上 |
@@ -73,7 +73,7 @@
 
 ## 6. 上線前檢查(每個部署區一次)
 
-- [ ] 資料庫與帳號已建立,migration 以 migrate 帳號套用
+- [ ] schema `file_svc` 與本服務帳號已建立(只授權 `file_svc`,試寫 `gw.*` 應失敗),migration 以 migrate 帳號套用、紀錄表在 `file_svc`
 - [ ] port 51272 已登記、防火牆只開 Gateway 主機
 - [ ] `/srv/giga-files/{env}` 已建立、擁有者與容器使用者一致
 - [ ] NAS 掛載可寫 `giga-files/{env}/`,舊來源掛載為唯讀(試寫應失敗)

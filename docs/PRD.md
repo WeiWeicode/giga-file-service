@@ -11,8 +11,8 @@
 | 項目 | 內容 |
 | --- | --- |
 | 產品名稱 | GigaNexus 附件服務(repo `giga-file-service`,服務 `file-api`) |
-| 文件版本 | **v0.7**(2026-10-08) |
-| 版本紀錄 | v0.7(2026-10-08,原 `FILE-PLAN.md` 依 Gateway `docs/` 做法拆分為 PRD + 主題文件(§12 對照表);新增 D16:畫面放 GigaItApp「Gateway 管理」目錄下的「檔案管理」選單(§8));v0.6(2026-10-08,納入 `smbFileUpload` 統計、相容層規則 12);v0.5(2026-10-08,`webFileUpload` 依平台 / 應用統計、相容層規則 10–11);v0.4(2026-10-08,122 生產區 log 觀察、相容層規則 8、9);v0.3(2026-10-08,D2–D15 定案);v0.2(2026-10-07,納入 BPM 表單附件);v0.1(2026-10-07,初稿) |
+| 文件版本 | **v0.8**(2026-10-08) |
+| 版本紀錄 | v0.8(2026-10-08,D7 改為沿用 Gateway 資料庫 `giganexus_gw` 的獨立 schema `file_svc`,不另建資料庫;新增 D17:本服務資料表用 Drizzle ORM、舊資料庫唯讀查詢用 `mssql`);v0.7(2026-10-08,原 `FILE-PLAN.md` 依 Gateway `docs/` 做法拆分為 PRD + 主題文件(§12 對照表);新增 D16:畫面放 GigaItApp「Gateway 管理」目錄下的「檔案管理」選單(§8));v0.6(2026-10-08,納入 `smbFileUpload` 統計、相容層規則 12);v0.5(2026-10-08,`webFileUpload` 依平台 / 應用統計、相容層規則 10–11);v0.4(2026-10-08,122 生產區 log 觀察、相容層規則 8、9);v0.3(2026-10-08,D2–D15 定案);v0.2(2026-10-07,納入 BPM 表單附件);v0.1(2026-10-07,初稿) |
 | 相關文件 | Gateway [BACKEND-GUIDE.md](../../giga-api-gateway-bff/docs/BACKEND-GUIDE.md) §2.1、§3、§4、[DEPLOYMENT.md](../../giga-api-gateway-bff/docs/DEPLOYMENT.md) §6、[FRONTEND-GUIDE.md](../../giga-api-gateway-bff/docs/FRONTEND-GUIDE.md) §7.5;GigaItApp `docs/UI-GUIDE.md`;舊系統 `GeneralBackend/filebackend`、`GeneralBackend/SMBbackend`、`old_PortalSolar` |
 
 ## 2. 產品概述
@@ -52,7 +52,7 @@
 | D4 | 大檔上傳路徑 | **B**:上傳由 Nginx `auth_request` 問 BFF 權限後**直接串流到 file-api**,只對上傳路由放寬到 50 MB;BFF 全域 10 MB 不動([ARCHITECTURE.md](ARCHITECTURE.md) §2) | ✅ 定案 |
 | D5 | 檔案存放位置 | WSL 檔案系統 `/srv/giga-files/{env}`(bind mount 進容器);**不放 `/mnt/c`**([STORAGE.md](STORAGE.md) §1) | ✅ 採用 |
 | D6 | NAS 備份方式 | WSL 以 cifs 掛載 `\\10.10.130.31\docker-folder`,**排程補傳**(非雙寫),DB 記錄備份狀態;路徑 `giga-files/{env}/`([STORAGE.md](STORAGE.md) §2) | ✅ 採用;子目錄與服務帳號待 IT(§11 #4) |
-| D7 | 資料庫 | 10.10.130.220 新建 `giganexus_file`(正式)/ `giganexus_file_test`(測試 + 開發),帳號比照 Gateway 分 app / migrate([DATABASE.md](DATABASE.md) §0) | ✅ 定案(建庫與帳密由使用者執行) |
+| D7 | 資料庫 | **沿用 Gateway 的 `giganexus_gw`**(正式)/ `giganexus_gw_test`(開發 + 測試)/ `giganexus_gw_poc_test`(整合測試),資料表放獨立 schema **`file_svc`**;只有少量資料表,不另建資料庫。帳號為本服務自有、只授權 `file_svc`,分 app / migrate;migration 紀錄表與 Gateway 分開([DATABASE.md](DATABASE.md) §0、§0.2) | ✅ 定案(2026-10-08 改;建 schema 與帳密由使用者執行) |
 | D8 | 舊系統 UUID | **新服務建對照表 `legacy_file_map`,不改舊資料表**([DATABASE.md](DATABASE.md) §3) | ✅ 採用;逐系統去留 F4 決策 |
 | D9 | 舊服務 | 照常運作、**程式碼一律不修改**(含 SMB `localdownload` 路徑問題,只記錄) | ✅ 定案:風險靠「新服務上線後舊服務下線」處理 |
 | D10 | BPM 附件怎麼接 | **file-api 直接查 NaNa(唯讀帳號)並向 5144 取檔、串流回傳**,不經 BPMbackend;5144 金鑰只放 file-api 機密設定;測試區 → 191、正式區 → 190([API.md](API.md) §3) | ✅ 採用 |
@@ -62,10 +62,11 @@
 | D14 | 166 PortalSolar 怎麼處理 | **166 → NAS(原檔名鏡像)→ 配 UUID → WSL(UUID 副本)**;對照表新建、舊表不動;並行期間 166 為正本,每日增量單向同步;同名被覆蓋時保留舊版([MIGRATION.md](MIGRATION.md) §3) | ✅ 定案(方向);掃描範圍待 F0 |
 | D15 | 新舊服務網址 | **分開**:新 API `/api/file/files*`、`/api/file/bpm/*`;舊格式相容層 `/api/file/compat/{fb\|smb\|portal}/*`(路徑與 JSON 照舊,舊前端只換基底網址);盤點 `/api/file/inventory/*`([API.md](API.md) §4) | ✅ 定案(方向) |
 | D16 | 畫面放哪裡 | **GigaItApp「Gateway 管理」目錄(`it.group.gateway`)下新增「檔案管理」選單**,與「服務與路由」「權限查詢」「架構觀測」並列;規格見 §8,節點於 F3 登記到 GigaItApp `deploy/gateway-rbac.yaml` | ✅ 定案(2026-10-08) |
+| D17 | 資料存取方式 | **`file_svc` 資料表用 Drizzle ORM + drizzle-kit**(版本鎖定與 Gateway 相同);舊資料庫(NaNa、`WebAppDb`、PortalSolar)唯讀查詢用 `mssql` 直接寫參數化 SQL,比照 Gateway `db/external/`。效能兩者相同(同一個驅動),選 Drizzle 是為了型別安全、自動產生 migration、與 Gateway 一致([DATABASE.md](DATABASE.md) §0.1) | ✅ 定案(2026-10-08) |
 
 ## 6. 架構摘要
 
-file-api(:51272)位於 Gateway 之後:一般 API 經 BFF 轉發(`X-Internal-Token`),上傳由 Nginx `auth_request` 後直送;file-api 讀寫 `giganexus_file` 與 WSL 檔案,worker 負責 NAS 補傳與舊系統同步;BPM 附件由 file-api 直連 NaNa 與 5144 即時代理。詳見 [ARCHITECTURE.md](ARCHITECTURE.md);部署見 [DEPLOYMENT.md](DEPLOYMENT.md)。
+file-api(:51272)位於 Gateway 之後:一般 API 經 BFF 轉發(`X-Internal-Token`),上傳由 Nginx `auth_request` 後直送;file-api 讀寫 `giganexus_gw` 的 schema `file_svc` 與 WSL 檔案,worker 負責 NAS 補傳與舊系統同步;BPM 附件由 file-api 直連 NaNa 與 5144 即時代理。詳見 [ARCHITECTURE.md](ARCHITECTURE.md);部署見 [DEPLOYMENT.md](DEPLOYMENT.md)。
 
 ## 7. 功能需求摘要
 
@@ -150,7 +151,7 @@ file-api(:51272)位於 Gateway 之後:一般 API 經 BFF 轉發(`X-Internal-Toke
 
 | 文件 | 內容 | 原 FILE-PLAN 章節 |
 | --- | --- | --- |
-| 本文件 `PRD.md` | 概述、目標、決策 D1–D16、畫面、待確認事項 | §1、§2、§4、§9、§13 |
+| 本文件 `PRD.md` | 概述、目標、決策 D1–D17、畫面、待確認事項 | §1、§2、§4、§9、§13 |
 | [LEGACY-INVENTORY.md](LEGACY-INVENTORY.md) | 舊系統盤點與使用統計 | §3.1–§3.5 |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | 架構、Gateway 限制與上傳路徑 | §3.6、§5 |
 | [STORAGE.md](STORAGE.md) | WSL 存放、NAS 備份 | §6 |
