@@ -10,6 +10,10 @@
  *   TEMP_RETENTION_HOURS  未綁定暫存檔保留時數(預設 24,API.md §2)
  *   DEV_SKIP_TOKEN        dev 專用:不驗證 X-Internal-Token(本機直連);非 dev 設定即啟動失敗
  *   HOST_DISK_PATH        選用:Windows 主機磁碟上的任一目錄(唯讀掛載),容量以它為準(WSL 虛擬磁碟的大小不代表實際可用空間)
+ *   BACKUP_ROOT           選用:NAS 備份根目錄(容器內 /data/backup,bind mount NAS giga-files/{env};STORAGE.md §2);未設定則不備份
+ *   BACKUP_INTERVAL_MINUTES  備份補傳間隔(預設 5)
+ *   BACKUP_MAX_ATTEMPTS   失敗幾次改為 failed 並告警(預設 5)
+ *   BACKUP_ALERT_USERS    選用:備份失敗告警收件人工號(逗號分隔;經 Gateway /api/notify/send,需 GW_API_KEY 有 notify.message.send)
  */
 import { readFileSync } from 'node:fs';
 import { isGatewayPort, loadGatewayEnv, loadMonitorEnv, type GatewayEnv, type MonitorEnv } from '@giganexus/backend-sdk';
@@ -40,6 +44,8 @@ export interface Config {
   devSkipToken: boolean;
   /** null = 只看檔案根目錄所在的檔案系統 */
   hostDiskPath: string | null;
+  /** null = 不備份(dev 預設) */
+  backup: { root: string; intervalMinutes: number; maxAttempts: number; alertUsers: string[] } | null;
 }
 
 export class ConfigError extends Error {
@@ -85,6 +91,24 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env, cwd?: string): 
   const retention = Number(env.TEMP_RETENTION_HOURS ?? 24);
   if (!Number.isFinite(retention) || retention <= 0) throw new ConfigError(`TEMP_RETENTION_HOURS 必須為正數:${env.TEMP_RETENTION_HOURS}`);
 
+  const positive = (name: string, v: string | undefined, def: number) => {
+    const n = Number(v ?? def);
+    if (!Number.isInteger(n) || n <= 0) throw new ConfigError(`${name} 必須為正整數:${v}`);
+    return n;
+  };
+  const backupRoot = env.BACKUP_ROOT || null;
+  const backup = backupRoot
+    ? {
+        root: backupRoot,
+        intervalMinutes: positive('BACKUP_INTERVAL_MINUTES', env.BACKUP_INTERVAL_MINUTES, 5),
+        maxAttempts: positive('BACKUP_MAX_ATTEMPTS', env.BACKUP_MAX_ATTEMPTS, 5),
+        alertUsers: (env.BACKUP_ALERT_USERS ?? '')
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean),
+      }
+    : null;
+
   return {
     gateway,
     monitor: loadMonitorEnv(gateway.gwEnv, env),
@@ -105,5 +129,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env, cwd?: string): 
     tempRetentionHours: retention,
     devSkipToken: isDev && flag(env.DEV_SKIP_TOKEN),
     hostDiskPath: env.HOST_DISK_PATH || null,
+    backup,
   };
 }

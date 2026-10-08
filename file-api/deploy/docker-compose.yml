@@ -5,6 +5,9 @@
 # 網路:file-api 加入 Gateway 的 Docker 網路(GW_NETWORK),別名 file-api:
 #   BFF → http://file-api:51272(X-Internal-Token;路由由啟動時自動註冊的草稿發佈後生效)
 # 檔案:主機 FILE_HOST_ROOT(預設 /srv/giga-files/test,WSL ext4,不放 /mnt/c;STORAGE.md §1)bind mount 到 /data/files,擁有者 uid 1000
+# NAS 備份(STORAGE.md §2):主機 FILE_BACKUP_HOST_ROOT(預設 /mnt/nas-docker/giga-files/test,cifs 掛載由 host2-mount-nas.sh 建立)
+#   bind mount 到 /data/backup;根目錄沒有標記檔 .giga-files-backup(NAS 未掛載)時備份整輪跳過,不會寫到本機
+#   NAS 掛載晚於容器啟動時,容器看不到掛載,需 --force-recreate
 # 機密(FILE_SECRETS_DIR,uid 1000 可讀;file-api/deploy/host2-set-secrets.sh 產生):
 #   file_db_password(file_app)、gw_api_key(Gateway CLI client:create --code file-api)、monitor_api_key(giga-observe 服務 file-api)
 # migration 由開發者電腦 npm run db:migrate 套用(file_migrate 不放測試區主機)
@@ -28,6 +31,11 @@ services:
       FILE_ROOT: /data/files
       # 容量以 Windows 主機磁碟為準(WSL 虛擬磁碟上限 1 TB 不代表實際可用;STORAGE.md §1)
       HOST_DISK_PATH: /host-disk
+      BACKUP_ROOT: /data/backup
+      BACKUP_INTERVAL_MINUTES: ${FILE_BACKUP_INTERVAL_MINUTES:-5}
+      BACKUP_MAX_ATTEMPTS: ${FILE_BACKUP_MAX_ATTEMPTS:-5}
+      # 備份失敗告警收件人工號(逗號分隔);需 gw_api_key 有 notify.message.send 與範本 FILE_BACKUP_FAILED,未設定只記錄日誌
+      BACKUP_ALERT_USERS: ${FILE_BACKUP_ALERT_USERS:-}
       FILE_DB_HOST: ${FILE_DB_HOST:?FILE_DB_HOST 必須設定}
       FILE_DB_PORT: ${FILE_DB_PORT:-1433}
       FILE_DB_NAME: ${FILE_DB_NAME:?FILE_DB_NAME 必須設定}
@@ -41,6 +49,7 @@ services:
       - ${FILE_HOST_ROOT:-/srv/giga-files/test}:/data/files
       # 主機 C: 上的空目錄(唯讀),只用來讀取磁碟容量;WSL 會自動建立
       - ${FILE_HOST_DISK_PROBE:-/mnt/c/giga-files-probe}:/host-disk:ro
+      - ${FILE_BACKUP_HOST_ROOT:-/mnt/nas-docker/giga-files/test}:/data/backup
     networks:
       gateway:
         aliases: [file-api]

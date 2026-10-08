@@ -22,6 +22,7 @@ export const PERMISSIONS = [
   { code: 'file.object.upload', name: '附件:上傳與綁定單據' },
   { code: 'file.object.delete', name: '附件:刪除' },
   { code: 'file.storage.read', name: '附件:儲存與備份狀態' },
+  { code: 'file.storage.manage', name: '附件:重試 NAS 備份' },
 ];
 
 export function swaggerOptions(serviceCode: string, project: string): SwaggerOptions {

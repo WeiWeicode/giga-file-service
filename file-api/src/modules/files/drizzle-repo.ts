@@ -1,5 +1,5 @@
 /** FileRepo 的 SQL Server 實作(Drizzle;DATABASE.md §1–§2)。只讀寫 schema file_svc */
-import { and, count, desc, eq, gte, inArray, isNull, lt, lte, or, sql, sum, type SQL } from 'drizzle-orm';
+import { and, count, desc, eq, gt, gte, inArray, isNull, lt, lte, or, sql, sum, type SQL } from 'drizzle-orm';
 import type { FileDatabase } from '../../db/client.js';
 import { fileAccessLog, fileObject } from '../../db/schema.js';
 import type { AccessLog, FileRecord, FileRepo, ListFilter, NewFile, Scope, StorageStats } from './types.js';
@@ -122,6 +122,57 @@ export class DrizzleFileRepo implements FileRepo {
       .offset(0)
       .fetch(limit);
     return rows.map(toRecord);
+  }
+
+  async pendingBackups(limit: number): Promise<FileRecord[]> {
+    const rows = await this.db
+      .select()
+      .from(fileObject)
+      .where(and(eq(fileObject.backupStatus, 'pending'), isNull(fileObject.deletedAt)))
+      .orderBy(fileObject.id)
+      .offset(0)
+      .fetch(limit);
+    return rows.map(toRecord);
+  }
+
+  async markBackupDone(fileUuid: string, at: Date): Promise<void> {
+    await this.db.update(fileObject).set({ backupStatus: 'done', backupAt: at }).where(eq(fileObject.fileUuid, fileUuid));
+  }
+
+  async markBackupAttempt(fileUuid: string, maxAttempts: number): Promise<{ status: FileRecord['backupStatus']; attempts: number }> {
+    // 單一 UPDATE 累加並判斷門檻(多個 worker 同時執行也不會少算)
+    const [r] = await this.db
+      .update(fileObject)
+      .set({
+        backupAttempts: sql`${fileObject.backupAttempts} + 1`,
+        backupStatus: sql`case when ${fileObject.backupAttempts} + 1 >= ${maxAttempts} then 'failed' else 'pending' end`,
+      })
+      .output({ inserted: { status: fileObject.backupStatus, attempts: fileObject.backupAttempts } })
+      .where(eq(fileObject.fileUuid, fileUuid));
+    if (!r) throw new Error(`找不到檔案:${fileUuid}`);
+    return { status: r.inserted.status as FileRecord['backupStatus'], attempts: r.inserted.attempts };
+  }
+
+  async retryBackups(fileUuids: string[] | null): Promise<number> {
+    const conds: SQL[] = [eq(fileObject.backupStatus, 'failed'), isNull(fileObject.deletedAt)];
+    if (fileUuids) conds.push(inArray(fileObject.fileUuid, fileUuids));
+    const updated = await this.db
+      .update(fileObject)
+      .set({ backupStatus: 'pending', backupAttempts: 0 })
+      .output({ inserted: { fileUuid: fileObject.fileUuid } })
+      .where(and(...conds));
+    return updated.length;
+  }
+
+  async backedUp(afterId: number, limit: number): Promise<(FileRecord & { id: number })[]> {
+    const rows = await this.db
+      .select()
+      .from(fileObject)
+      .where(and(eq(fileObject.backupStatus, 'done'), isNull(fileObject.deletedAt), gt(fileObject.id, afterId)))
+      .orderBy(fileObject.id)
+      .offset(0)
+      .fetch(limit);
+    return rows.map((r) => ({ ...toRecord(r), id: Number(r.id) }));
   }
 
   async stats(): Promise<StorageStats> {

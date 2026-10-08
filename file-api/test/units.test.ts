@@ -119,4 +119,16 @@ describe('設定(AGENT.md §6)', () => {
   it('缺少 FILE_ROOT 啟動失敗', () => {
     assert.throws(() => loadConfig({ ...base, FILE_ROOT: '', GW_ENV: 'dev', FILE_DB_PASSWORD: 'p' }), /FILE_ROOT 未設定/);
   });
+  it('NAS 備份:未設定 BACKUP_ROOT 不備份;有設定時預設每 5 分鐘、失敗 5 次告警', () => {
+    const dev = { ...base, GW_ENV: 'dev', FILE_DB_PASSWORD: 'p' };
+    assert.equal(loadConfig(dev).backup, null);
+    assert.deepEqual(loadConfig({ ...dev, BACKUP_ROOT: '/data/backup', BACKUP_ALERT_USERS: 'S112009, S200001,' }).backup, {
+      root: '/data/backup',
+      intervalMinutes: 5,
+      maxAttempts: 5,
+      alertUsers: ['S112009', 'S200001'],
+    });
+    assert.throws(() => loadConfig({ ...dev, BACKUP_ROOT: '/b', BACKUP_MAX_ATTEMPTS: '0' }), /BACKUP_MAX_ATTEMPTS 必須為正整數/);
+    assert.throws(() => loadConfig({ ...dev, BACKUP_ROOT: '/b', BACKUP_INTERVAL_MINUTES: '1.5' }), /BACKUP_INTERVAL_MINUTES/);
+  });
 });

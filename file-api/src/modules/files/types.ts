@@ -76,6 +76,15 @@ export interface FileRepo {
   /** 建立早於 before、仍未綁定且未刪除的暫存檔 */
   expiredTemps(before: Date, limit: number): Promise<FileRecord[]>;
   stats(): Promise<StorageStats>;
+  /** 待備份(pending)且未刪除,依建立順序 */
+  pendingBackups(limit: number): Promise<FileRecord[]>;
+  markBackupDone(fileUuid: string, at: Date): Promise<void>;
+  /** 備份失敗:累計次數,達 maxAttempts 改為 failed;回傳更新後的狀態與次數 */
+  markBackupAttempt(fileUuid: string, maxAttempts: number): Promise<{ status: FileRecord['backupStatus']; attempts: number }>;
+  /** failed → pending、次數歸零;fileUuids 為 null 時重試全部;回傳筆數 */
+  retryBackups(fileUuids: string[] | null): Promise<number>;
+  /** 已備份(done)且未刪除,從 afterId 之後依序取(還原 CLI 逐批掃描) */
+  backedUp(afterId: number, limit: number): Promise<(FileRecord & { id: number })[]>;
 }
 
 export function inScope(f: Pick<FileRecord, 'uploadedBy' | 'companyId'>, scope: Scope): boolean {

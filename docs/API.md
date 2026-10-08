@@ -52,8 +52,8 @@
 | GET | `/api/file/files/:uuid/content` | 下載(`Content-Disposition` 含 UTF-8 檔名;`?inline=1` 預覽圖片 / PDF) | `file.object.read` |
 | POST | `/api/file/files/bind` | 將暫存檔綁定到單據(`uuids[]`、`refType`、`refNo`) | `file.object.upload` |
 | DELETE | `/api/file/files/:uuid` | 軟刪除 | `file.object.delete` |
-| GET | `/api/file/storage` | 容量、備份統計、失敗清單 | `file.storage.read` |
-| POST | `/api/file/storage/backup/retry` | 重試失敗的備份(**F2,未實作**) | `file.storage.manage` |
+| GET | `/api/file/storage` | 容量、備份統計、失敗清單;`backupEnabled` 表示此環境是否設定 NAS 備份 | `file.storage.read` |
+| POST | `/api/file/storage/backup/retry` | 重試失敗的備份:`failed` → `pending`、失敗次數歸零,下一輪排程補傳;body `fileUuids[]` 選填(省略為全部);未設定 NAS 備份回 409 `FILE_BACKUP_DISABLED` | `file.storage.manage` |
 | GET | `/api/file/inventory/*` | 舊系統盤點結果(唯讀;**F4,未實作**;F0 先以 CLI `npm run inventory` 產出報告) | `file.legacy.read` |
 | GET | `/healthz`、`/openapi.json` | 健康檢查、Gateway 匯入 | 內網 |
 

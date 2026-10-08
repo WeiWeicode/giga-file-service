@@ -12,6 +12,7 @@ import { setupGateway } from '@giganexus/backend-sdk/fastify';
 import Fastify, { type FastifyInstance, type FastifyRequest } from 'fastify';
 import type { Config } from './config.js';
 import { AppError } from './errors.js';
+import type { BackupService } from './modules/backup/backup-service.js';
 import type { Actor, FileService } from './modules/files/file-service.js';
 import { PathEscapeError } from './modules/storage/local-store.js';
 import { swaggerOptions } from './openapi.js';
@@ -33,6 +34,8 @@ const DEV_IDENTITY: GatewayIdentity = { sub: 'dev', emp: 'dev', name: '本機開
 export interface AppOptions {
   config: Pick<Config, 'gateway' | 'monitor' | 'logLevel' | 'devSkipToken' | 'maxFileBytes' | 'maxFilesPerRequest'>;
   service: FileService;
+  /** null = 此環境未設定 NAS 備份 */
+  backup?: BackupService | null;
   /** 就緒檢查:SQL Server、檔案根目錄可用 */
   readiness?: () => Promise<{ ok: boolean; checks: Record<string, string> }>;
   deps?: () => Promise<DepStatus[]>;
@@ -128,6 +131,6 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
   });
   app.get('/openapi.json', noAuth, async () => app.swagger());
 
-  await app.register(fileRoutes(service, actorOf, config.maxFileBytes));
+  await app.register(fileRoutes(service, actorOf, config.maxFileBytes, opts.backup ?? null));
   return app;
 }

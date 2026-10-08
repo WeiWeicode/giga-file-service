@@ -23,6 +23,7 @@
     "db:check-2012": "tsx scripts/check-sql2012.ts",
     "openapi": "tsx src/print-openapi.ts",
     "inventory": "tsx --env-file-if-exists=.env src/cli/inventory.ts",
+    "restore": "tsx --env-file-if-exists=.env src/cli/restore.ts",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },

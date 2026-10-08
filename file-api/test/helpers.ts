@@ -2,7 +2,7 @@
  * 測試共用:記憶體版 FileRepo(單元測試;SQL Server 版由 test/int 驗證)、測試用 JWKS 與 Token、multipart 請求、暫存檔案根目錄。
  * 一律使用假檔案與暫存目錄(AGENT.md §9),不碰 166 / NAS / 正式資料。
  */
-import { mkdtempSync, readdirSync, statSync } from 'node:fs';
+import { mkdtempSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
@@ -22,6 +22,8 @@ import {
   type Scope,
   type StorageStats,
 } from '../src/modules/files/types.js';
+import { BackupService, type BackupAlert } from '../src/modules/backup/backup-service.js';
+import { BackupStore, MARKER } from '../src/modules/storage/backup-store.js';
 import { LocalStore } from '../src/modules/storage/local-store.js';
 
 export class MemoryFileRepo implements FileRepo {
@@ -69,6 +71,38 @@ export class MemoryFileRepo implements FileRepo {
   }
   async expiredTemps(before: Date, limit: number): Promise<FileRecord[]> {
     return this.files.filter((f) => !f.refNo && !f.deletedAt && f.createdAt < before).slice(0, limit);
+  }
+  readonly attempts = new Map<string, number>();
+  async pendingBackups(limit: number): Promise<FileRecord[]> {
+    return this.files.filter((f) => f.backupStatus === 'pending' && !f.deletedAt).slice(0, limit);
+  }
+  async markBackupDone(fileUuid: string, at: Date): Promise<void> {
+    const f = this.files.find((x) => x.fileUuid === fileUuid);
+    if (f) Object.assign(f, { backupStatus: 'done', backupAt: at });
+  }
+  async markBackupAttempt(fileUuid: string, maxAttempts: number) {
+    const f = this.files.find((x) => x.fileUuid === fileUuid);
+    if (!f) throw new Error(`找不到檔案:${fileUuid}`);
+    const attempts = (this.attempts.get(fileUuid) ?? 0) + 1;
+    this.attempts.set(fileUuid, attempts);
+    f.backupStatus = attempts >= maxAttempts ? 'failed' : 'pending';
+    return { status: f.backupStatus, attempts };
+  }
+  async retryBackups(fileUuids: string[] | null): Promise<number> {
+    let n = 0;
+    for (const f of this.files)
+      if (f.backupStatus === 'failed' && !f.deletedAt && (!fileUuids || fileUuids.includes(f.fileUuid))) {
+        f.backupStatus = 'pending';
+        this.attempts.set(f.fileUuid, 0);
+        n++;
+      }
+    return n;
+  }
+  async backedUp(afterId: number, limit: number) {
+    return this.files
+      .map((f, i) => ({ ...f, id: i + 1 }))
+      .filter((f) => f.id > afterId && f.backupStatus === 'done' && !f.deletedAt)
+      .slice(0, limit);
   }
   async stats(): Promise<StorageStats> {
     const active = this.files.filter((f) => !f.deletedAt);
@@ -132,18 +166,43 @@ export interface TestApp {
   service: FileService;
   root: string;
   clock: { now: Date };
+  store: LocalStore;
+  /** 有 opts.backup 時才有 */
+  backup: { service: BackupService; nas: BackupStore; root: string; alerts: Parameters<BackupAlert>[0][] } | null;
 }
 
-export async function buildTestApp(jwks: Jwks, opts: { repo?: FileRepo; config?: Partial<Config> } = {}): Promise<TestApp> {
+export interface TestBackupOptions {
+  maxAttempts?: number;
+  /** false:不建立標記檔(模擬 NAS 未掛載) */
+  marker?: boolean;
+}
+
+export async function buildTestApp(jwks: Jwks, opts: { repo?: FileRepo; config?: Partial<Config>; backup?: TestBackupOptions } = {}): Promise<TestApp> {
   const root = mkdtempSync(path.join(tmpdir(), 'file-api-'));
   const config = { ...testConfig(jwks.url, root), ...opts.config };
   const store = new LocalStore(root);
   await store.init();
   const clock = { now: new Date() };
   const repo = opts.repo ?? new MemoryFileRepo();
-  const service = new FileService({ repo, store, tempRetentionHours: config.tempRetentionHours, now: () => clock.now });
-  const app = await buildApp({ config, service });
-  return { app, repo, service, root, clock };
+  let backup: TestApp['backup'] = null;
+  if (opts.backup) {
+    const nasRoot = mkdtempSync(path.join(tmpdir(), 'file-nas-'));
+    if (opts.backup.marker !== false) writeFileSync(path.join(nasRoot, MARKER), '');
+    const nas = new BackupStore(nasRoot);
+    const alerts: Parameters<BackupAlert>[0][] = [];
+    const service = new BackupService({
+      repo,
+      local: store,
+      nas,
+      maxAttempts: opts.backup.maxAttempts ?? 3,
+      alert: async (f) => void alerts.push(f),
+      now: () => clock.now,
+    });
+    backup = { service, nas, root: nasRoot, alerts };
+  }
+  const service = new FileService({ repo, store, nas: backup?.nas ?? null, tempRetentionHours: config.tempRetentionHours, now: () => clock.now });
+  const app = await buildApp({ config, service, backup: backup?.service ?? null });
+  return { app, repo, service, root, clock, store, backup };
 }
 
 /** 使用者身分(碩禾,擁有權限由 Gateway 檢查,file-api 只看身分與資料範圍) */

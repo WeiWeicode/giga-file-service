@@ -133,6 +133,35 @@ describe('DrizzleFileRepo(SQL Server 2012,schema file_svc)', () => {
     assert.equal(s.backup.pending, s.files);
     assert.ok(s.bytes >= 40);
   });
+
+  it('NAS 備份狀態:累計失敗達門檻改 failed、重試歸零、已備份逐批掃描', async () => {
+    const a = file({});
+    const b = file({});
+    const gone = file({});
+    await repo.insertMany([a, b, gone], []);
+    await repo.softDelete(gone.fileUuid, 'S112009', new Date(), null);
+    const pending = (await repo.pendingBackups(1000)).map((f) => f.fileUuid);
+    assert.ok(pending.includes(a.fileUuid) && pending.includes(b.fileUuid));
+    assert.ok(!pending.includes(gone.fileUuid), '已刪除的不備份');
+
+    assert.deepEqual(await repo.markBackupAttempt(a.fileUuid, 2), { status: 'pending', attempts: 1 });
+    assert.deepEqual(await repo.markBackupAttempt(a.fileUuid, 2), { status: 'failed', attempts: 2 });
+    const at = new Date('2026-10-08T06:00:00Z');
+    await repo.markBackupDone(b.fileUuid, at);
+    const gotB = await repo.findActive(b.fileUuid);
+    assert.equal(gotB?.backupStatus, 'done');
+    assert.equal(gotB?.backupAt?.toISOString(), at.toISOString());
+    assert.equal((await repo.stats()).failedItems[0]?.fileUuid, a.fileUuid);
+
+    assert.equal(await repo.retryBackups([b.fileUuid]), 0, 'done 的不受重試影響');
+    assert.equal(await repo.retryBackups(null), 1);
+    assert.equal((await repo.findActive(a.fileUuid))?.backupStatus, 'pending');
+    assert.deepEqual(await repo.markBackupAttempt(a.fileUuid, 2), { status: 'pending', attempts: 1 }, '重試後次數歸零');
+
+    const first = await repo.backedUp(0, 1);
+    assert.equal(first[0]?.fileUuid, b.fileUuid);
+    assert.equal((await repo.backedUp(first[0]!.id, 10)).length, 0);
+  });
 });
 
 describe('完整 API 經 SQL Server(上傳 → 綁定 → 下載 → 刪除)', () => {

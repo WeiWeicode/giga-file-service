@@ -2,7 +2,7 @@
 
 > 比照 Gateway:Gherkin 維持驗收規格文件,自動化以 Node 內建測試(`node:test` + tsx)執行,本表記錄每個場景由哪個測試涵蓋。
 > 「未自動化」註明原因;新增場景或測試時同步更新本表(IMPL-PLAN §6 完成定義)。
-> 縮寫(皆在 `file-api/`):`F` = `test/files.test.ts`;`U` = `test/units.test.ts`;`I` = `test/inventory.test.ts`;`INT` = `test/int/files.int.test.ts`(SQL Server 2012,`npm run test:int`);`L` = `test/legacy/shares.legacy.test.ts`(真實 NAS / 166 唯讀,`npm run test:legacy`)。場景名稱與測試名稱相同。
+> 縮寫(皆在 `file-api/`):`F` = `test/files.test.ts`;`U` = `test/units.test.ts`;`I` = `test/inventory.test.ts`;`INT` = `test/int/files.int.test.ts`(SQL Server 2012,`npm run test:int`);`B` = `test/backup.test.ts`;`L` = `test/legacy/shares.legacy.test.ts`(真實 NAS / 166 唯讀,`npm run test:legacy`)。場景名稱與測試名稱相同。
 
 ## files/upload-download.feature(F1)
 
@@ -38,6 +38,21 @@
 | 只能看到自己公司的檔案 | F;INT(SQL 範圍條件) |
 | 系統身分只能存取自己上傳的檔案 | F;INT |
 | 原檔名的路徑片段被移除 | F;U |
+
+## files/backup.feature(F2)
+
+| 場景 | 測試 |
+| --- | --- |
+| 補傳到 NAS 並驗證 SHA-256 | B(NAS 以暫存目錄模擬);INT(markBackupDone) |
+| NAS 未掛載時跳過,不累計失敗,恢復後自動補 | B |
+| 失敗達門檻改為 failed 並告警一次 | B;INT(單一 UPDATE 累加與門檻);告警 Email 實寄待測試區人工驗證 |
+| 本機檔案內容與資料庫不符時不備份 | B |
+| 未綁定暫存檔清除時一併移除 NAS 備份 | B |
+| 軟刪除不動 NAS 備份 | B |
+| 重試失敗的備份 | B;INT(retryBackups) |
+| 未設定 NAS 備份的環境 | B;U(設定) |
+| 刪除本機檔後以 CLI 還原且 SHA 相符(預設乾跑) | B(restore 模組);INT(backedUp 逐批掃描);CLI 本身測試區人工執行 |
+| 本機內容不符時保留壞檔再還原;NAS 也不符時不寫入 | B |
 
 ## legacy/inventory.feature(F0)
 

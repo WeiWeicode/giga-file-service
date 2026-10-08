@@ -27,4 +27,17 @@
 | 還原 | 提供 CLI:依 DB 紀錄從 NAS 拉回遺失的實體檔 |
 
 - NAS 子目錄與服務帳號待 IT 提供,F2 前需要(PRD §11 #4)。
+
+### 2.1 實作(F2,2026-10-08)
+
+| 項目 | 實作 |
+| --- | --- |
+| 掛載 | `file-api/deploy/host2-mount-nas.sh`(使用者執行):帳密檔 `/etc/giganexus/nas.cred`(600)、`/etc/fstab` 加 cifs(`uid=1000`、`nofail`)、建立 `giga-files/{env}/` 與**標記檔** `.giga-files-backup`。容器內 `/data/backup`(`BACKUP_ROOT`);NAS 晚於容器掛載時需 `--force-recreate` |
+| 標記檔 | 沒有標記檔視為 NAS 未掛載,整輪跳過、不累計失敗(Docker 在掛載點不存在時會建立本機空目錄,不可寫進去後標記完成) |
+| 排程 | `BACKUP_INTERVAL_MINUTES`(預設 5),啟動時先跑一輪;上一輪未完成不重疊;每輪最多 200 筆 |
+| 驗證 | 先比對本機檔與資料庫 SHA(不符不備份)→ 寫 `.part` → 比對 → rename → 再讀一次比對;NAS 已有相同內容視為完成 |
+| 失敗 | `backup_attempts` 以單一 UPDATE 累加,達 `BACKUP_MAX_ATTEMPTS`(預設 5)改 `failed`;一輪合併告警一次:Gateway `/api/notify/send`、範本 `FILE_BACKUP_FAILED`、收件人 `BACKUP_ALERT_USERS`(工號,逐人 Email;未設定只記錄日誌)|
+| 重試 | `POST /api/file/storage/backup/retry`;GigaItApp「儲存與備份」的「重試 / 全部重試」(`it.gw-file.backup-retry`) |
+| 暫存檔 | 未綁定暫存檔逾期清除時,NAS 備份一併刪除;正式檔案軟刪除不動 NAS |
+| 還原 | `npm run restore -- [--uuid …] [--apply]`(容器內 `node dist/src/cli/restore.js`):預設乾跑;本機遺失或內容不符、NAS SHA 相符才寫回;本機壞檔改名 `.corrupt-{時間}` 保留 |
 - 失敗一律反映在 `backup_status`,**不可回報成功**(`AGENT.md` §5)。
