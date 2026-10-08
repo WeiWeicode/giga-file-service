@@ -3,7 +3,7 @@
 > 本文件是 AI 程式助手(Claude、Gemini 等)在本專案中的行為準則,所有 AI 協作開發必須遵守。
 > 由 Gateway 專案(`giga-api-gateway-bff`)根目錄 `AGENT.md`、下游後端樣本 `samples/node-backend/AGENT.md` 與 `GigaItApp/AGENT.md` 整理合併,並依本專案調整。
 > Gateway 的規格(`../giga-api-gateway-bff/docs/`)仍是上位規範;本文件與之不一致時,**先指出差異,不要自行決定以哪一邊為準**。
-> 本專案的設計決策(D1–D15)與工作項目(F0–F7)以 **[docs/FILE-PLAN.md](docs/FILE-PLAN.md)** 為準;跨專案規則(相對路徑、用 BFF 路由表找 API、跨 repo 修改)見 `../giga-api-gateway-bff/AGENT.md` **§10 多專案工作區**。
+> 本專案的設計決策(D1–D16)以 **[docs/PRD.md](docs/PRD.md)** 為準,各主題見 PRD §12 文件索引,工作項目(F0–F7)見 [docs/IMPL-PLAN.md](docs/IMPL-PLAN.md);跨專案規則(相對路徑、用 BFF 路由表找 API、跨 repo 修改)見 `../giga-api-gateway-bff/AGENT.md` **§10 多專案工作區**。
 
 ---
 
@@ -45,36 +45,36 @@
 | 項目 | 內容 |
 | --- | --- |
 | 做什麼 | GigaNexus 共用的附件(檔案)服務:上傳 / 下載 / 清單 / 軟刪除 / 單據綁定;檔案存放於主機 WSL 並排程備份到 NAS;**BPM 表單附件唯讀查詢與下載**;**舊系統(GeneralBackend `filebackend` / `SMBbackend`、166 PortalSolar)檔案的 UUID 對照與同步**;舊格式相容層 |
-| 狀態 | **規劃中,尚無程式碼**。規劃文件 [docs/FILE-PLAN.md](docs/FILE-PLAN.md)(決策 D1–D15 已定案,§13 仍有待確認事項);工作項目 F0–F7 的時程**以 NexusPlan 甘特圖為準**,文件不列日期 |
+| 狀態 | **規劃中,尚無程式碼**。規劃文件以 [docs/PRD.md](docs/PRD.md) 為總綱(決策 D1–D16 已定案,§11 仍有待確認事項;主題文件見 §12);工作項目 F0–F7 的時程**以 NexusPlan 甘特圖為準**,文件不列日期 |
 | 系統代碼 / API | `file`;新 API `/api/file/files*`、`/api/file/bpm/*`;盤點 `/api/file/inventory/*`;舊格式相容層 `/api/file/compat/{fb,smb,portal}/*`(D15) |
 | 服務代碼 / port | `file-api` / **51272**(D2 定案;**尚未登記**於 `../giga-api-gateway-bff/docs/BACKEND-GUIDE.md` §3.3,開發前先向 Gateway 負責人登記,不可自行換 port) |
-| 登入 | **後端不實作登入**,只信任 Gateway 的 `X-Internal-Token`。唯一例外:舊格式相容路由(舊前端沒有 Gateway 登入,規劃 `auth_mode = public` + Nginx 內網白名單,需 IT 核准,FILE-PLAN §8.3 規則 4) |
+| 登入 | **後端不實作登入**,只信任 Gateway 的 `X-Internal-Token`。唯一例外:舊格式相容路由(舊前端沒有 Gateway 登入,規劃 `auth_mode = public` + Nginx 內網白名單,需 IT 核准,`docs/API.md` §4.4 規則 4) |
 | 檔案存放 | 主機 WSL `/srv/giga-files/{env}`(容器內 `/data/files`),實體路徑 `{yyyy}/{mm}/{file_uuid}`(不帶副檔名與原檔名);不放 `/mnt/c`(D5) |
 | 備份 | WSL 以 cifs 掛載 NAS `\\10.10.130.31\docker-folder`,排程補傳並驗 SHA-256(D6);NAS 上 `giga-files/{env}/` 為新服務備份,`giga-files/legacy/portalsolar/` 為 166 原檔名鏡像 |
 | 資料庫 | SQL Server 10.10.130.220:`giganexus_file`(正式)、`giganexus_file_test`(測試 + 開發),帳號分 app / migrate(D7);SQL Server 2012 限制見 `../giga-api-gateway-bff/docs/DATABASE.md` §0 |
-| 畫面 | 不在本 repo:GigaItApp「檔案管理」頁(F3,`../GigaItApp/`),上傳元件之後進 `@giganexus/web-kit` |
+| 畫面 | 不在本 repo:GigaItApp「Gateway 管理 › 檔案管理」選單(D16、PRD §8;F3,`../GigaItApp/`),上傳元件之後進 `@giganexus/web-kit` |
 | 工作區 | 與 `../giga-api-gateway-bff/`(上位規範、SDK、路由表)、`../GigaItApp/`(畫面與選單權限)同層;舊系統唯讀參考:`../old_PortalSolar/`、`../../GeneralBackend/`(`filebackend`、`SMBbackend`)、`../../BPM/bpmcomonent/`(舊前端 `FileUpload.vue`、`SPfileUpload.vue`)、`../../BPMbackend/`。後三者不在 GigaNexus 工作區同層,**不在你的環境時說明「未讀取」,不要猜內容** |
-| 尚未登記 | 本 repo 尚未加入 Gateway `AGENT.md` §10.2 專案登記表、工作區 `AGENT.md` §3 導航與 `GigaNexusAIPlan/architecture/workspace.json`;這些在其他 repo,**要改先說明並取得同意**(§10.5) |
+| 登記 | 已加入 Gateway `AGENT.md` §10.2 專案登記表、工作區 `AGENT.md` §3 導航、`PROJECT-MAP.md` 與 `GigaNexusAIPlan/architecture/workspace.json`(2026-10-08);port 51272 **尚未**登記於 Gateway BACKEND-GUIDE §3.3。其他 repo 的修改**先說明並取得同意** |
 
 ---
 
 ## 1. 先思考再動手
 
 - **動手之前,先說明你的理解與假設**:用 1–3 句話摘要打算做什麼、為什麼這樣做。
-- **有疑問先問,不要猜**;需求有多種解讀時,列出選項讓人類選擇。FILE-PLAN §13 列出的待確認事項,**未定案前不要自行決定**。
-- 規格以 Gateway `docs/` 與 [docs/FILE-PLAN.md](docs/FILE-PLAN.md) 為準;程式與規格不一致時先指出差異。
+- **有疑問先問,不要猜**;需求有多種解讀時,列出選項讓人類選擇。PRD §11 列出的待確認事項,**未定案前不要自行決定**。
+- 規格以 Gateway `docs/` 與 [docs/](docs/PRD.md)(PRD 與主題文件) 為準;程式與規格不一致時先指出差異。
 
 ```
 ❌ 看到舊 SMB 有路徑穿越問題,順手去修 ../../GeneralBackend/SMBbackend
-✅ 「SMB localdownload 未檢查 ../(FILE-PLAN §3.2)。D9 決定舊服務程式一律不動,
-    我只在 §3.2 記錄,新服務只用 UUID 取檔、不接受路徑參數。這樣對嗎?」
+✅ 「SMB localdownload 未檢查 ../(LEGACY-INVENTORY §2)。D9 決定舊服務程式一律不動,
+    我只在 LEGACY-INVENTORY §2 記錄,新服務只用 UUID 取檔、不接受路徑參數。這樣對嗎?」
 ```
 
 ## 2. 簡單優先
 
-- 用最少的程式碼解決當前問題,不寫「未來可能用到」的程式碼(例:防毒掃描只保留擴充點,不實作,FILE-PLAN §11)。
+- 用最少的程式碼解決當前問題,不寫「未來可能用到」的程式碼(例:防毒掃描只保留擴充點,不實作,SECURITY-CHECKLIST S14)。
 - 不要「順便」引入新套件、設計模式或抽象層;新增套件前先說明理由(Gateway `docs/TECH-STACK.md` 已列的優先)。
-- 舊格式相容層是**過渡用**,不為它設計通用框架;舊端點只做 FILE-PLAN §8.3 列的、有人使用的那幾支。
+- 舊格式相容層是**過渡用**,不為它設計通用框架;舊端點只做 API §4 列的、有人使用的那幾支。
 
 ## 3. 外科手術式修改
 
@@ -86,8 +86,8 @@
 
 ## 4. 目標導向執行
 
-- 先定義成功標準,**優先對應 FILE-PLAN 的工作項目(F0–F7)與完成標準**,自己迭代到達成為止;遇到阻塞(缺資訊、權限不足、尚未登記 port、缺帳密)才停下來回報。
-- 行為變更時同步更新:FILE-PLAN(決策 / API / 資料表)→ OpenAPI `x-gherkin` 場景 → 測試;API 變更同步 `docs/` 對應章節。
+- 先定義成功標準,**優先對應 IMPL-PLAN 的工作項目(F0–F7)與驗收條件**,自己迭代到達成為止;遇到阻塞(缺資訊、權限不足、尚未登記 port、缺帳密)才停下來回報。
+- 行為變更時同步更新:PRD(決策)/ API.md / DATABASE.md→ OpenAPI `x-gherkin` 場景 → 測試;API 變更同步 `docs/` 對應章節。
 - 完成時簡要說明:做了什麼、執行了哪些指令、結果如何;**完成工作項目後,依工作區慣例更新 NexusPlan 甘特圖**(`../GigaNexusAIPlan/`),文件本身不寫日期。
 
 ## 5. 失敗要明確說
@@ -126,7 +126,7 @@
 - **不修改**:GeneralBackend `filebackend`、`SMBbackend`(含 `localdownload` 路徑穿越問題,D9)、`old_PortalSolar`、BPM 的 `BPMbackend` 與 `bpmcomonent`。只讀程式碼以確認 API 欄位與行為。
 - **不改舊資料表**:`webFileUpload`、`smbFileUpload`、PortalSolar 各表只讀(D8);對照一律寫在本專案資料庫的 `legacy_file_map`。
 - **不寫入舊來源**:166 `PortalSolar`、190 `SDSFILES`、NAS 的 `CP` / 備份目錄對同步與搬遷程式皆**唯讀**(掛載用 `ro`、帳號用唯讀帳號)。NAS 上只寫本專案自己的 `giga-files/` 目錄。
-- 舊來源有多個值得注意的現況(中文原檔名、同名覆蓋、備份是時間點快照、`robocopy /is /e` 不刪除),見 FILE-PLAN §3、§10.1、§10.2,**處理前先讀**。
+- 舊來源有多個值得注意的現況(中文原檔名、同名覆蓋、備份是時間點快照、`robocopy /is /e` 不刪除),見 LEGACY-INVENTORY、MIGRATION §2、§3,**處理前先讀**。
 
 ### 7.2 機密與帳密
 
@@ -134,33 +134,33 @@
 - **AI 不開啟 `.env`、不讀取機密檔、不要求使用者貼帳密**:需要寫入主機機密時,寫成腳本(隱藏輸入)交給使用者執行。
 - BPM 5144 金鑰**只放 file-api 機密設定**(D10);`../../BPMbackend` 的註解裡有明碼金鑰,**不要複製到本專案**,也不要貼進文件或對話。
 
-### 7.3 儲存與下載安全(FILE-PLAN §6、§11)
+### 7.3 儲存與下載安全(STORAGE、SECURITY-CHECKLIST)
 
 - **對外只用 `file_uuid`**:不暴露遞增 id、實體路徑、原檔名;**不提供依路徑或檔名取檔的 API**(舊 SMB `localdownload` 的問題不可重現);相容層以對照表查詢,不直接組路徑。
 - 寫檔:先寫 `tmp/` 並同時計算 SHA-256,完成後 `rename` 到正式路徑,**再寫資料庫**;失敗清掉暫存,不留資料庫有紀錄但沒有檔案(反之亦然)。
 - 組合路徑時一律 `path.resolve` 後確認落在根目錄之下(含分隔符的前綴比對),不信任任何來自請求或資料庫的路徑片段。
 - 副檔名白名單 + 檢查檔頭(magic number);拒絕執行檔與腳本;`image/svg+xml` 一律以附件下載、不 inline。
 - 回應標頭:`X-Content-Type-Options: nosniff`;`Content-Disposition` 同時給 ASCII 後備名與 `filename*=UTF-8''…`;下載需要暴露此標頭給跨來源前端。
-- 軟刪除只設 `deleted_at`,**不刪實體檔、不刪 NAS**;實體清除是保留期限後的獨立排程(期限待定,FILE-PLAN §13)。
+- 軟刪除只設 `deleted_at`,**不刪實體檔、不刪 NAS**;實體清除是保留期限後的獨立排程(期限待定,PRD §11 #4)。
 - 上傳、下載、刪除、綁定寫 `file_access_log`(含 `X-Request-Id`)。
 
-### 7.4 舊格式相容層(`/api/file/compat/*`,FILE-PLAN §8.3)
+### 7.4 舊格式相容層(`/api/file/compat/*`,API §4)
 
 - 路徑與 JSON **照舊服務**(`success`、`message`、`file(s)`、`data`、`total`、欄位大小寫),以 `../../GeneralBackend/filebackend/controllers/sqlFileController.js`、`../../GeneralBackend/SMBbackend/controllers/smbFileUploadController.js` 與舊前端實際解析的欄位為準;**不要憑印象改欄位**。
 - **隔離**:相容層程式放在獨立目錄,新 API(Gateway 統一錯誤格式、UUID)與舊格式互不影響;錯誤回舊式 `{ success:false, message, error }` 只限相容路由,**不可外洩到新 API**。
-- 只做 FILE-PLAN §8.3 列的端點;舊的不寫 DB 直接存取、目錄瀏覽、`/api/localdownload` 等**不複製**。
+- 只做 API §4.1、§4.2 列的端點;舊的不寫 DB 直接存取、目錄瀏覽、`/api/localdownload` 等**不複製**。
 - 資料原樣存取:`platform`、`sourceApplication`(`{應用}_{類別}`,**不拆**)、`sourceNumber`;舊 `id` 對照 `legacy_file_map.legacy_key`,新檔 `id` 用 UUID;SMB 的 `path` 兩種格式(`{uuid}{副檔名}`、中文原檔名)都要查得到。
-- 相容層測試要用舊服務回應當 golden 樣本比對欄位;**舊前端切換前**,該來源的歷史檔案必須已搬完並驗證(FILE-PLAN §8.3 規則 5)。
+- 相容層測試要用舊服務回應當 golden 樣本比對欄位;**舊前端切換前**,該來源的歷史檔案必須已搬完並驗證(API §4.4 規則 5)。
 
-### 7.5 166 同步與 NAS 拉取(FILE-PLAN §10.1、§10.2)
+### 7.5 166 同步與 NAS 拉取(MIGRATION §2、§3)
 
 - 方向**單向**:166 → NAS(原檔名鏡像)→ 配 UUID → WSL(UUID 副本);新系統自己上傳的檔案不寫回 166。
 - **冪等、可重試、不刪**:每個檔案走 `sync_state` 狀態線;來源檔不見只標 `source_missing_at`;同名內容被覆蓋時舊列 `is_current = 0`、新增一列新 UUID,舊版保留。
 - 掃描先比大小與修改時間,不變的檔案不重算 SHA-256、不重讀內容;大型目錄(例 `ESLearning` 影片)限速或獨立排程。
 - 與資料庫的對照只出報表(斷鏈、孤兒),**不修改任何舊資料**。
-- 要同步的目錄範圍、同名覆蓋處理、頻率、切換日等見 FILE-PLAN §13,**未定案前不要擴大範圍**。
+- 要同步的目錄範圍、同名覆蓋處理、頻率、切換日等見 PRD §11 #12、#13,**未定案前不要擴大範圍**。
 
-### 7.6 BPM 附件(FILE-PLAN §3.5、§8.2、D10–D12)
+### 7.6 BPM 附件(LEGACY-INVENTORY §5、API §3、D10–D12)
 
 - **唯讀**:不提供 BPM 附件的上傳、修改、刪除;BPM 仍是正本。
 - 環境由設定 `BPM_ENV` 決定(測試 → 191、正式 → 190);**不提供** `/test/*` 這種以路徑切換環境的 API。
@@ -185,11 +185,11 @@
 | 新增 API 前先查 | 先查 Gateway 既有路由(`gw:lookup`,Gateway `AGENT.md` §10.4),查到相近的先回報並詢問;**查不到(沒有 `GW_BASE_URL` / API Key)要明確說「未查詢」**,不可當作沒有重複 |
 | 路徑 | 後端 `/v1/{resource}`(名詞複數、kebab-case)對外自動成為 `/api/file/{resource}`;相容層需要不同對外路徑時以 `x-gateway-path` 指定 |
 | 必填欄位 | 每支 API 的 `operationId`(`file.{resource}.{action}`)、`summary`、`description`、`x-permission`、`x-gherkin`;`npm test` 會檢查,**不要放寬** |
-| 權限 | 讀 / 寫分開:`file.object.read` / `upload` / `delete`、`file.bpm.read`、`file.storage.read` / `manage`、`file.legacy.read`(FILE-PLAN §8);畫面節點由 GigaItApp 的 `deploy/gateway-rbac.yaml` 登記並綁定,不在本 repo |
+| 權限 | 讀 / 寫分開:`file.object.read` / `upload` / `delete`、`file.bpm.read`、`file.storage.read` / `manage`、`file.legacy.read`(API §1.1);畫面節點由 GigaItApp 的 `deploy/gateway-rbac.yaml` 登記並綁定,不在本 repo |
 | 身分 | 只信任 `X-Internal-Token`(`req.identity`),**dev 也不略過驗證**;資料層級(公司、部門、`source_system`)由後端依 Token 過濾,無權回 `403 DATA_ACCESS_DENIED` |
 | 錯誤 | `throw new AppError(status, code, message, details?)`,格式 `{ code, message, requestId, details? }`;自訂代碼以 **`FILE_`** 開頭,不可用 `UNAUTHENTICATED`、`PERMISSION_DENIED`、`CSRF_INVALID`、`UPSTREAM_*`;不回傳堆疊或 SQL(相容層例外格式見 §7.4) |
 | 冪等 | `GET` / `PUT` / `DELETE` 必須冪等(Gateway 只重試冪等方法);上傳 `POST` 建議支援 `Idempotency-Key` |
-| 分頁 | `page`、`pageSize`(上限 100)、回應 `{ items, total, page, pageSize }`;**清單由後端篩選與分頁**;相容層 `/sql-files` 的特例見 FILE-PLAN §8.3 規則 8 |
+| 分頁 | `page`、`pageSize`(上限 100)、回應 `{ items, total, page, pageSize }`;**清單由後端篩選與分頁**;相容層 `/sql-files` 的特例見 API §4.4 規則 8 |
 | 大小 | 單檔上限 50 MB(D3);預設逾時 10 秒,下載與同步以串流與背景工作處理,不要把整個檔案讀進記憶體 |
 | 標頭 | 不回 `Set-Cookie`、CORS、`Server`、`X-Powered-By` |
 | 日誌 / 監控 | 寫入 `X-Request-Id`;接入 giga-observe(BACKEND-GUIDE §11);**不在日誌記錄原檔名以外的敏感內容、帳密、Token** |
@@ -203,12 +203,12 @@
 | 語言 / 框架 | TypeScript(ESM、`strict`、`noUncheckedIndexedAccess`)+ Fastify 5,路由以 plugin 組織;Gateway 共用功能一律用 `@giganexus/backend-sdk`(設定、Token 驗證、自動註冊、路由查詢),不自己重寫 |
 | 命名 | 變數 / 函式 `camelCase`,型別 `PascalCase`,常數 `UPPER_SNAKE_CASE`,檔名 `kebab-case.ts`;資料表 / 欄位 `snake_case` |
 | 格式 | Prettier(單引號、`printWidth` 160、尾逗號) |
-| 註解語言 | 繁體中文,註明對應規格章節(例 `(FILE-PLAN §8.3)`、`(AGENT.md §7.3)`);同一檔案內統一 |
+| 註解語言 | 繁體中文,註明對應規格章節(例 `(API.md §4.4)`、`(AGENT.md §7.3)`);同一檔案內統一 |
 | 測試資料 | 一律用**假檔案與暫存目錄**;不對 166、NAS、190 / 191 的正式資料做寫入測試;不可在瀏覽器輸入真實帳密 |
 
 ### 9.1 專案地圖與設計原則
 
-- **專案地圖:`docs/PROJECT-MAP.md`(尚未建立,F1 建立骨架時一併建立)**。開發新功能後,在同一個變更內更新(新增 / 搬移 / 刪除目錄或主要檔案、職責改變、新 API 都要反映),並更新開頭的「最後更新」;規則見 Gateway `AGENT.md` §10.7.1。
+- **專案地圖:`docs/PROJECT-MAP.md`**(目前只有文件,§1.2 為 F1 預計結構)。開發新功能後,在同一個變更內更新(新增 / 搬移 / 刪除目錄或主要檔案、職責改變、新 API 都要反映),並更新開頭的「最後更新」;規則見 Gateway `AGENT.md` §10.7.1。
 - 核心設計原則依 Gateway `AGENT.md` §10.7.2 的 **TypeScript / Node.js 後端**列。預計的分層(F1 建立後以專案地圖為準):
 
 | 原則 | 本專案做法 |
@@ -229,8 +229,18 @@
 
 | 文件 | 路徑 | 說明 |
 | --- | --- | --- |
-| **附件服務計畫** | `docs/FILE-PLAN.md` | 決策 D1–D15、舊系統盤點、架構、儲存與備份、資料表、API(§8.1 新 API、§8.2 BPM、§8.3 相容層)、166 同步(§10.2)、安全、工作項目 F0–F7、待確認事項 |
-| 專案地圖 | `docs/PROJECT-MAP.md` | 尚未建立(F1);建立後**開發新功能必須更新**(§9.1) |
+| **產品需求(總綱)** | `docs/PRD.md` | 概述、目標、**決策 D1–D16**、畫面(GigaItApp「Gateway 管理 › 檔案管理」)、**待確認事項(§11)**、文件索引與 FILE-PLAN 舊章節對照(§12) |
+| 架構 | `docs/ARCHITECTURE.md` | 架構圖、Gateway 限制與上傳直送(D4-B) |
+| API | `docs/API.md` | §2 新 API、§3 BPM 附件、§4 舊格式相容層(規則 1–12) |
+| 資料庫 | `docs/DATABASE.md` | `file_object`、`file_access_log`、`legacy_file_map` |
+| 儲存與備份 | `docs/STORAGE.md` | WSL 存放、NAS 備份 |
+| 對照與同步 | `docs/MIGRATION.md` | §2 NAS 備份拉取、§3 166 同步 |
+| 舊系統盤點 | `docs/LEGACY-INVENTORY.md` | filebackend、SMB、PortalSolar、122 使用統計、BPM 附件現況 |
+| 資安檢查 | `docs/SECURITY-CHECKLIST.md` | S1–S21 做法與狀態 |
+| 實作計畫 | `docs/IMPL-PLAN.md` | F0–F7 交付物 / 驗收、前置工作、測試策略、完成定義 |
+| 部署 | `docs/DEPLOYMENT.md` | 部署區、CI/CD、掛載、機密、Gateway 端變更 |
+| 行為規格 | `docs/Gherkin/` | README(預計場景)、TEST-MAP(場景 ↔ 測試) |
+| 專案地圖 | `docs/PROJECT-MAP.md` | 目錄與職責;**開發新功能必須更新**(§9.1) |
 | 本專案說明 | `README.md` | 定位與規劃摘要 |
 | Gateway 開發手冊 | `../giga-api-gateway-bff/AGENT.md` | 通用準則來源;§10 多專案工作區、§10.8 AI 分工 |
 | 下游後端準則 | `../giga-api-gateway-bff/samples/node-backend/AGENT.md` | 部署區、API 必填欄位、新增 API 前先查 |
@@ -246,7 +256,7 @@
 
 ## 11. 修正紀錄
 
-每次修正都要留紀錄,**新紀錄加在檔案最上方**(檔案於第一次需要記錄時建立)。
+每次修正都要留紀錄,**新紀錄加在檔案最上方**。
 
 | 文件 | 路徑 | 說明 |
 | --- | --- | --- |
@@ -256,7 +266,7 @@
 
 動到 Gateway 專案(`nginx/`、`deploy/`、`docs/`)或 GigaItApp 時,**在那個 repo** 另留紀錄;每個 repo 各自 commit,訊息註明配合的另一個 repo 與 commit。
 
-**開發新功能後,同一個變更內更新 `docs/PROJECT-MAP.md`**(§9.1),並在紀錄的「檔案」欄列出。規劃變更同步更新 `docs/FILE-PLAN.md` 的版本資訊。
+**開發新功能後,同一個變更內更新 `docs/PROJECT-MAP.md`**(§9.1),並在紀錄的「檔案」欄列出。規劃變更同步更新 `docs/PRD.md` 的版本紀錄,以及受影響的主題文件(PRD §12)。
 
 ### 紀錄格式
 ```
