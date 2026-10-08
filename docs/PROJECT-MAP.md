@@ -48,7 +48,7 @@ giga-file-service/
 | `/api/file/files*`、`/api/file/storage` | API §2 | ✅ 測試區已部署並驗收(F1) |
 | `/api/file/storage/backup/retry` | API §2、STORAGE §2.1 | ✅ 測試區已部署並驗收(F2) |
 | `/api/file/inventory/*` | API §2 | 規劃(F4) |
-| `/api/file/bpm/*` | API §3 | 🔶 實作中(F6) |
+| `/api/file/bpm/*` | API §3 | 🔶 已實作(F6;`src/modules/bpm/`、`src/routes/bpm.ts`),待測試區驗收 |
 | `/api/file/compat/{fb,smb,portal}/*` | API §4 | 規劃 |
 | GigaItApp「Gateway 管理 › 檔案管理」 | PRD §8 | 🔶 檔案清單、儲存與備份已上線;BPM 附件(F6)、舊系統(F4)待做 |
 

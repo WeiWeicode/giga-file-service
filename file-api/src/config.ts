@@ -14,6 +14,8 @@
  *   BACKUP_INTERVAL_MINUTES  備份補傳間隔(預設 5)
  *   BACKUP_MAX_ATTEMPTS   失敗幾次改為 failed 並告警(預設 5)
  *   BACKUP_ALERT_USERS    選用:備份失敗告警收件人工號(逗號分隔;經 Gateway /api/notify/send,需 GW_API_KEY 有 notify.message.send)
+ *   BPM_DB_*              選用:BPM NaNa 唯讀帳號(F6;db/dba/02-create-bpm-readonly.sql);未設定 BPM_DB_HOST 則 /bpm/* 回 409
+ *   BPM_FILE_URL          BPM 取檔服務(:5144;測試區 191、正式區 190);BPM_FILE_API_KEY(_FILE)為其 X-API-Key,只放 file-api
  */
 import { readFileSync } from 'node:fs';
 import { isGatewayPort, loadGatewayEnv, loadMonitorEnv, type GatewayEnv, type MonitorEnv } from '@giganexus/backend-sdk';
@@ -46,6 +48,8 @@ export interface Config {
   hostDiskPath: string | null;
   /** null = 不備份(dev 預設) */
   backup: { root: string; intervalMinutes: number; maxAttempts: number; alertUsers: string[] } | null;
+  /** null = 未設定 BPM 附件(F6) */
+  bpm: { sql: SqlConfig; fileUrl: string; apiKey: string } | null;
 }
 
 export class ConfigError extends Error {
@@ -109,6 +113,20 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env, cwd?: string): 
       }
     : null;
 
+  const bpm = env.BPM_DB_HOST
+    ? {
+        sql: {
+          server: env.BPM_DB_HOST,
+          port: Number(env.BPM_DB_PORT ?? 1433),
+          database: env.BPM_DB_NAME ?? 'NaNa',
+          user: required('BPM_DB_USER', env.BPM_DB_USER),
+          password: required('BPM_DB_PASSWORD(或 BPM_DB_PASSWORD_FILE)', secret(env, 'BPM_DB_PASSWORD', !isDev)),
+        },
+        fileUrl: required('BPM_FILE_URL', env.BPM_FILE_URL),
+        apiKey: required('BPM_FILE_API_KEY(或 BPM_FILE_API_KEY_FILE)', secret(env, 'BPM_FILE_API_KEY', !isDev)),
+      }
+    : null;
+
   return {
     gateway,
     monitor: loadMonitorEnv(gateway.gwEnv, env),
@@ -130,5 +148,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env, cwd?: string): 
     devSkipToken: isDev && flag(env.DEV_SKIP_TOKEN),
     hostDiskPath: env.HOST_DISK_PATH || null,
     backup,
+    bpm,
   };
 }

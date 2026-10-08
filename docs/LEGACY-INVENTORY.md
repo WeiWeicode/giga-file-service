@@ -124,6 +124,17 @@ BPM(NaNa)的表單附件由 BPM 系統自己存放;需求方已在 BPM 主機架
 3. 最多打 3 次 5144 才找到檔案;`localAttachmentPath.filePath` 若完整,可直接取得路徑。
 4. 下載的 `Content-Disposition` 只有 `filename="%E4..."`,部分瀏覽器中文檔名會顯示成編碼字串。
 5. 沒有使用者身分與權限檢查:知道 Doid 就能下載任何表單的附件。
+6. **金鑰寫死在 NotesApp 前端**(`NotesApp/src/api/*` 9 支,隨前端送到瀏覽器),等同公開;換金鑰會讓 NotesApp 下載失敗,需先改走 file-api(2026-10-08 使用者決定 file-api 先沿用既有金鑰、不重新打包 FileAPI.exe)。
+
+### 5.1 實查(2026-10-08,191 NaNa 唯讀帳號 `file_bpm_ro`)
+
+| 項目 | 結果 |
+| --- | --- |
+| 資料量 | `NoCmDocument` 208,267 筆;`localAttachmentPath` 只有 64 筆,`filePath` 為 `D:\attachment\{應用}\{檔名}`,不在 5144 根目錄內 → **下載不用它** |
+| physicalName 長度 | 26(91,712)、25(56,144)、27(45,711)、24(12,929)、23(1,622)、22(140)、21(7)、32(2) |
+| 目錄規則 | 每長度抽最近 4 筆向 191:5144 取檔:找得到的**全部**落在「去掉第一段與最後一段」(N = 段數 − 2):23 / 24 字元 N=10、25 / 26 字元 N=11、27 字元 N=12;BPMbackend 固定試 11 → 10 → 12,21 / 22 / 32 字元(N=9 / 14)永遠取不到。其餘取不到的應是 191 測試機沒有該檔 |
+| 5144 | FastAPI(`python_BPM190191檔案下載API`,PyInstaller 打包為 `FileAPI.exe`),部署於 BPM 主機 `D:\BPM\wildfly-15.0.0.Final\modules\NaNa\DocServer\document`,`.env` 的 `API_KEY` 為唯一金鑰;主機 2 連得到 191 的 5144 與 1433 |
+| 欄位 | `NoCmDocument.OID` nchar(32) 十六進位;`ProcessInstance.subject` 等為 `ntext`(DISTINCT 前需轉 nvarchar) |
 
 新服務的做法(D10–D12)見 [API.md](API.md) §3。
 

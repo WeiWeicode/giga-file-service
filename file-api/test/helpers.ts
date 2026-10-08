@@ -23,6 +23,9 @@ import {
   type StorageStats,
 } from '../src/modules/files/types.js';
 import { BackupService, type BackupAlert } from '../src/modules/backup/backup-service.js';
+import { BpmService } from '../src/modules/bpm/bpm-service.js';
+import { BpmDocServer } from '../src/modules/bpm/doc-server.js';
+import type { BpmRepo } from '../src/modules/bpm/types.js';
 import { BackupStore, MARKER } from '../src/modules/storage/backup-store.js';
 import { LocalStore } from '../src/modules/storage/local-store.js';
 
@@ -177,7 +180,17 @@ export interface TestBackupOptions {
   marker?: boolean;
 }
 
-export async function buildTestApp(jwks: Jwks, opts: { repo?: FileRepo; config?: Partial<Config>; backup?: TestBackupOptions } = {}): Promise<TestApp> {
+/** BPM 附件:repo 由測試提供,5144 指向測試用 HTTP 伺服器 */
+export interface TestBpmOptions {
+  repo: BpmRepo;
+  fileUrl: string;
+  apiKey: string;
+}
+
+export async function buildTestApp(
+  jwks: Jwks,
+  opts: { repo?: FileRepo; config?: Partial<Config>; backup?: TestBackupOptions; bpm?: TestBpmOptions } = {},
+): Promise<TestApp> {
   const root = mkdtempSync(path.join(tmpdir(), 'file-api-'));
   const config = { ...testConfig(jwks.url, root), ...opts.config };
   const store = new LocalStore(root);
@@ -201,7 +214,15 @@ export async function buildTestApp(jwks: Jwks, opts: { repo?: FileRepo; config?:
     backup = { service, nas, root: nasRoot, alerts };
   }
   const service = new FileService({ repo, store, nas: backup?.nas ?? null, tempRetentionHours: config.tempRetentionHours, now: () => clock.now });
-  const app = await buildApp({ config, service, backup: backup?.service ?? null });
+  const bpm = opts.bpm
+    ? new BpmService({
+        repo: opts.bpm.repo,
+        docs: new BpmDocServer({ baseUrl: opts.bpm.fileUrl, apiKey: opts.bpm.apiKey, timeoutMs: 2000 }),
+        log: (e) => repo.log(e),
+        source: '10.10.130.191',
+      })
+    : null;
+  const app = await buildApp({ config, service, backup: backup?.service ?? null, bpm });
   return { app, repo, service, root, clock, store, backup };
 }
 

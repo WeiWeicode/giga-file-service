@@ -32,8 +32,8 @@
 
 | # | 項目 | 做法 | 驗證 | 狀態 |
 | --- | --- | --- | --- | --- |
-| S15 | BPM 取檔金鑰 | 5144 `X-API-Key` 只放 file-api 機密設定;瀏覽器與其他系統拿不到(D10);**建議更換**(舊金鑰已在 BPM repo 註解中) | 程式審查 | ❌(PRD §11 #8) |
-| S16 | 唯讀帳號 | NaNa、166、NAS 舊備份目錄皆用唯讀帳號 / `ro` 掛載;盤點程式只有讀取介面(`ReadonlyFs`) | 單元(spy 只呼叫 readdir / stat / openRead)、真實來源前後快照相同;部署端待 F2 / F4 | 🔶 |
+| S15 | BPM 取檔金鑰 | 5144 `X-API-Key` 只放 file-api 機密設定(`bpm_file_api_key`,`_FILE`),回應與 OpenAPI 不含金鑰、`physicalName`;資料庫的 physicalName 只接受英數才組 5144 路徑 | 單元(金鑰錯誤 502、路徑字元拒絕且不送出) | ⚠️ file-api 端 ✅;**金鑰未更換**:舊金鑰寫死在 NotesApp 前端與 BPMbackend 註解,使用者 2026-10-08 決定先沿用,待 NotesApp 改走 file-api 後再換(PRD §11 #8) |
+| S16 | 唯讀帳號 | NaNa、166、NAS 舊備份目錄皆用唯讀帳號 / `ro` 掛載;盤點程式只有讀取介面(`ReadonlyFs`) | 單元(spy 只呼叫 readdir / stat / openRead)、真實來源前後快照相同;NaNa `file_bpm_ro` 只有附件 5 張表 SELECT,實測讀其他表被拒(2026-10-08);166 / NAS 舊目錄部署端待 F4 | 🔶 NaNa ✅ |
 | S17 | 機密存放 | `*_FILE` Docker secret(test / prod 只接受 `_FILE`);不入版控、映像、日誌 | 設定測試、程式審查;測試區機密檔 400、uid 1000(`host2-set-secrets.sh`) | ✅ 測試區 |
 | S18 | 舊服務漏洞 | SMB `localdownload` 路徑穿越:**依 D9 只記錄不修**,風險靠新服務上線後舊服務下線處理 | — | ⚠️ 已核准的例外 |
 

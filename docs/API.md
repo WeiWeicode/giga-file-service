@@ -67,14 +67,17 @@
 
 | 方法 | 路徑 | 說明 | 權限 |
 | --- | --- | --- | --- |
-| GET | `/api/file/bpm/forms/:serialNumber/attachments` | 依單號**完全比對**列出附件(Doid、原檔名、副檔名、表單名稱、主旨、建立日期) | `file.bpm.read` |
-| GET | `/api/file/bpm/attachments/:doid` | 單一附件資訊 | `file.bpm.read` |
-| GET | `/api/file/bpm/attachments/:doid/content` | 下載:先用 `localAttachmentPath.filePath`,沒有才依 [LEGACY-INVENTORY.md](LEGACY-INVENTORY.md) §5 目錄規則(11 → 10 → 12 段)向 5144 取檔;串流回傳,`filename*=UTF-8''` 中文檔名 | `file.bpm.read` |
+| GET | `/api/file/bpm/forms/:serialNumber/attachments` | 依單號**完全比對**列出附件(`doid`、`originalName`、`ext`、`formName`、`subject`、`createdAt`;最多 500 筆;`source` = 資料來源主機);單號限英數、`_`、`-` | `file.bpm.read` |
+| GET | `/api/file/bpm/attachments/:doid` | 單一附件資訊與所屬單號(Doid = 32 碼十六進位,不分大小寫) | `file.bpm.read` |
+| GET | `/api/file/bpm/attachments/:doid/content` | 下載:依 [LEGACY-INVENTORY.md](LEGACY-INVENTORY.md) §5 目錄規則向 5144 取檔(預測段數 = 段數 − 2 優先,再試 11 / 10 / 12),串流回傳,`filename*=UTF-8''` 中文檔名;`?inline=1` 只對 PDF / 圖片。找不到 404 `FILE_BPM_NOT_FOUND`、5144 拒絕或連不上 502 `FILE_BPM_UPSTREAM` | `file.bpm.read` |
 
 - file-api 直接查 NaNa(唯讀帳號)並向 5144 取檔,不經 BPMbackend;5144 金鑰只放 file-api 機密設定(D10)。不複製檔案,即時代理(D11)。
-- 環境由 file-api 設定決定(`BPM_ENV`:測試 → 191、正式 → 190),**不提供** `/test/*` 這類以路徑切換正式 / 測試的 API。
+- 環境由 file-api 設定決定(`BPM_DB_HOST`、`BPM_FILE_URL`:測試區 → 191、正式區 → 190),**不提供** `/test/*` 這類以路徑切換正式 / 測試的 API。未設定 `BPM_DB_HOST` 時回 409 `FILE_BPM_DISABLED`。
+- **不用 `localAttachmentPath`**:只有 64 筆(NoCmDocument 20 萬筆),`filePath` 指向 `D:\attachment\…`,在 5144 根目錄外取不到(2026-10-08 實查)。
 - 每次下載寫 `file_access_log`(`action = bpm_download`,記 Doid 與單號)。
-- 找到正確的目錄段數後記在快取(Redis 或記憶體 LRU,key = physicalName),同一檔案不重複試。
+- 找到正確的目錄段數後記在記憶體 LRU(key = physicalName,上限 10,000 筆),同一檔案不重複試。
+- `physicalName`、副檔名只接受英數(資料庫值也不信任),不符回 500 `FILE_BPM_BAD_RECORD`,不送到 5144。
+- NaNa 的 `datetime` 為台灣時間,以字串取出標 `+08:00` 後轉 ISO(不依容器時區)。
 
 ## 4. 舊格式相容層(`/api/file/compat/*`,D15)
 

@@ -10,6 +10,9 @@ import { createDb, openPool } from './db/client.js';
 import { DrizzleFileRepo } from './modules/files/drizzle-repo.js';
 import { BackupService } from './modules/backup/backup-service.js';
 import { gatewayAlert } from './modules/backup/gateway-alert.js';
+import { BpmService } from './modules/bpm/bpm-service.js';
+import { BpmDocServer } from './modules/bpm/doc-server.js';
+import { NanaBpmRepo } from './modules/bpm/nana-repo.js';
 import { FileService } from './modules/files/file-service.js';
 import { BackupStore } from './modules/storage/backup-store.js';
 import { LocalStore } from './modules/storage/local-store.js';
@@ -55,10 +58,23 @@ const backup =
       })
     : null;
 
+// BPM 附件(F6):NaNa 連線延遲到第一次查詢,連不上不影響啟動
+const bpmRepo = config.bpm ? new NanaBpmRepo(config.bpm.sql) : null;
+const bpm =
+  config.bpm && bpmRepo
+    ? new BpmService({
+        repo: bpmRepo,
+        docs: new BpmDocServer({ baseUrl: config.bpm.fileUrl, apiKey: config.bpm.apiKey }),
+        log: (entry) => repo.log(entry),
+        source: config.bpm.sql.server,
+      })
+    : null;
+
 const app = await buildApp({
   config,
   service,
   backup,
+  bpm,
   readiness: async () => {
     const c = await checks();
     return { ok: c.every((x) => x.ok), checks: Object.fromEntries(c.map((x) => [x.name, x.ok ? 'ok' : `error: ${x.message}`])) };
@@ -107,6 +123,6 @@ for (const signal of ['SIGINT', 'SIGTERM'])
     // close 會一併送出監控緩衝(最多等 3 秒)
     void app
       .close()
-      .then(() => pool.close())
+      .then(() => Promise.all([pool.close(), bpmRepo?.close()]))
       .then(() => process.exit(0));
   });
