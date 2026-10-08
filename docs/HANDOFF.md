@@ -1,6 +1,6 @@
 # giga-file-service — 目前進度與待處理事項
 
-> 最後更新:2026-10-08 14:50(§2.1.1、F2 NAS 備份測試區驗收通過;下一批 F6 待帳號)。分批進行(使用者 2026-10-08 指示):每完成一批就給使用者測試,測試期間同步做下一批。時程以甘特圖 W11 為準。
+> 最後更新:2026-10-08 16:20(F1、F2 完成;F6 程式完成並部署,待主機 2 BPM 機密與路由發佈後驗收)。分批進行(使用者 2026-10-08 指示):每完成一批就給使用者測試,測試期間同步做下一批。時程以甘特圖 W11 為準。
 > 細節以各文件為準:[PRD](PRD.md)(決策 D1–D17、待確認 §11)、[IMPL-PLAN](IMPL-PLAN.md)(F0–F7)、[DEPLOYMENT](DEPLOYMENT.md) §2.1。
 
 ## 1. 已完成
@@ -15,6 +15,7 @@
 | 測試回饋修正 | ① 單檔上限 50 → **30 MB**(D3);上傳 `POST /api/file/files` 改由 Gateway Nginx `auth_request` **直送 file-api**(D4-B 已實作),BFF `/_auth/verify` 對非 GET 補驗 CSRF ② 「主機磁碟」原顯示 WSL 虛擬磁碟上限 1007 GB,改以 Windows 主機磁碟為準(`HOST_DISK_PATH`,C: 200 GB / 剩 148 GB) | Gateway f360b46、file-service 6589792、GigaItApp bf5d45a | 單元:file-api 54、BFF 226 通過;13:20 已部署測試區 |
 | 測試區驗收 | 發現並修正 Gateway nginx:① `/_auth/verify` 子請求沿用預設 10m 上限,>10 MB 直送上傳回 500 → 設 `client_max_body_size 0` ② `/api/file/files` 自訂 `error_page` 後不繼承 `json-errors.conf`,413 回 HTML → 重列 413/429/5xx | Gateway c0b8fc3 | 2026-10-08 以使用者登入的瀏覽器實測:25 MB 上傳 201、31 MB 413 `PAYLOAD_TOO_LARGE`、缺 CSRF 403 `PERMISSION_DENIED`;清單 / 資訊 / 下載(UTF-8 檔名)/ 綁定 / 刪除正常;「儲存與備份」顯示 52.6 GB / 200 GB、剩 147 GB 並註明 WSL 上限 1007 GB;測試檔已刪除。甘特圖 W11-3 完成、W11-6 80% |
 | F2 NAS 備份(程式) | 備份排程(標記檔防呆、SHA-256 驗證、失敗門檻 + Gateway 通知告警)、重試 API `POST /api/file/storage/backup/retry`(`file.storage.manage`)、還原 CLI `npm run restore`、暫存檔清除連帶刪 NAS;Compose 掛 `/data/backup`;`deploy/host2-mount-nas.sh`;GigaItApp「重試 / 全部重試」(`it.gw-file.backup-retry`) | 見 commit 紀錄 | 單元 69、SQL Server 2012 整合 6 全過;GigaItApp typecheck、build;**2026-10-08 測試區驗收通過**:① 上傳後 4 分鐘 `done`,NAS 檔 SHA 相符 ② 標記檔移除期間上傳維持 `pending`、日誌「本輪跳過」,恢復後下一輪自動補 ③ 刪本機檔 → `restore` 乾跑列出 → `--apply` 還原,SHA 相符、頁面下載正常;測試檔已刪除 |
+| F6 BPM 附件(程式) | `/api/file/bpm/forms/:sn/attachments`、`/attachments/:doid`、`/:doid/content`(NaNa 唯讀 + 5144 代理,預測段數優先 + 11/10/12 備援、LRU 快取、下載寫 `bpm_download`);GigaItApp「BPM 附件」Tab(`it.gw-file.bpm`);Compose 以目錄掛載 `file-secrets/bpm` | file-service 37916c1、GigaItApp b9045ba | 單元 83(新增 14)、真實 191 NaNa / 5144 唯讀 3(預測段數第一次命中);已部署測試區,**BPM 機密未寫入 → `/api/file/bpm/*` 目前回 409**;3 條路由草稿待發佈 |
 | F0 | NAS(filebackend 110、CP 101,含 SHA-256)、166(55,169 檔)唯讀盤點 | — | LEGACY-INVENTORY §6 |
 
 ## 2. 下一步(依序)
@@ -37,20 +38,27 @@
 - **先跳過(使用者 2026-10-08 決定)**:備份失敗告警 Email — Gateway 負責人為 `file-api` 的 API Key 加 `notify.message.send`(會換發 Key → 重寫主機 2 `gw_api_key`)、建立範本 `FILE_BACKUP_FAILED`(變數 `env`、`count`、`items`、`linkUrl`),`file.env` 設 `FILE_BACKUP_ALERT_USERS`。未設定時失敗只記日誌與畫面「備份失敗」。
 - 軟刪除後的實體清除(含 NAS)待保留期限決定(PRD §11 #4)。
 
-### 2.3 Claude 下一批
+### 2.3 F6 BPM 附件 — 需要使用者執行
+
+1. **發佈路由**:GigaItApp「服務與路由 › 發佈版本」發佈 `file` 系統 3 條新草稿(`file.bpm.*`)。
+2. **主機 2 BPM 機密**:`ssh -t host2 "wsl -u root -- sh /mnt/c/Users/user/host2-set-bpm-secrets.sh"`,依序貼上 NaNa `file_bpm_ro` 密碼、5144 金鑰(與開發機 `.env` 相同)。
+3. 告訴 Claude → Claude 以 `ssh host2 "wsl -u root -- sh /mnt/c/Users/user/file-recreate.sh"` 重建容器(標籤已改 `37916c10`)並在 `/it/` 驗收:依單號查詢、下載中文檔名、`file_access_log` 有 `bpm_download`。
+4. 正式區 190:測試區驗收後再建 `file_bpm_ro`(密碼不同),正式區部署時設定 `BPM_DB_HOST=10.10.130.190`、`BPM_FILE_URL=http://10.10.130.190:5144`。
+
+### 2.4 Claude 下一批
 
 | 項目 | 內容 | 前置 |
 | --- | --- | --- |
-| F6 BPM 附件 | `/api/file/bpm/*` 三支(NaNa 唯讀 + 5144 代理)、GigaItApp「BPM 附件」Tab | ✅ NaNa 191 唯讀帳號 `file_bpm_ro`(`db/dba/02-create-bpm-readonly.sql`,開發機 `.env` 已設,實測只能讀 5 張表;近期附件 `localAttachmentPath` 無路徑 → 需目錄規則);**5144 金鑰沿用既有金鑰**(使用者 2026-10-08 決定不重新打包 FileAPI.exe;舊金鑰寫死在 NotesApp 前端 9 支 API 與 BPMbackend 註解,換金鑰會讓 NotesApp 下載失敗,待 NotesApp 改走 file-api 後再換,做法:5144 支援 `API_KEY` + `API_KEYS` 並行);開發機 `.env` 的 `BPM_FILE_API_KEY` 與主機 2 `deploy/host2-set-bpm-secrets.sh` 由使用者填入 |
 | F7 相容層 | `/api/file/compat/fb|smb/*`,以舊前端對測 | 相容路由公開 + 內網白名單、CORS(PRD §11 #15、#16);歷史檔先搬完(F4) |
-| F4 對照與同步 | NAS 拉取乾跑、166 同步、`legacy_file_map` | `WebAppDb` 唯讀帳號(逐筆對照)、166 同步範圍(PRD §11 #12、#13) |
+| F4 對照與同步 | NAS 拉取乾跑、166 同步、`legacy_file_map`;GigaItApp「舊系統」Tab | `WebAppDb` 唯讀帳號(逐筆對照)、166 同步範圍(PRD §11 #12、#13) |
+| NotesApp 改走 file-api | NotesApp 9 支 API 改呼叫 `/api/file/bpm/*`,之後才能更換 5144 金鑰 | NotesApp 負責人;Gateway 登入整合 |
 
 ## 3. 待使用者 / 需求方決定(摘自 PRD §11)
 
 - #4 NAS 服務帳號 → F2 掛載需要(子目錄已依 STORAGE §2 用 `giga-files/{env}/`);軟刪除保留期限 → 實體清除(未實作)需要
 - #5 資料範圍第一版(自己上傳的或同公司)是否可以 → 目前已這樣實作
 - #6 允許的檔案類型(目前暫定:pdf、圖片、Office、msg、txt、csv、zip、7z、rar)
-- #8 5144 金鑰更換、NaNa 唯讀帳號 → F6 需要
+- #8 5144 金鑰更換 → 暫緩(沿用既有金鑰,待 NotesApp 改走 file-api);NaNa 唯讀帳號 ✅ 191 已建
 - #12 166 同步範圍(`html` 佔 52,572 檔 / 1.1 GB、`ESLearning` 不在此分享)
 - `WebAppDb` 唯讀帳號:NAS 檔案數與資料表筆數不一致(filebackend 110 檔 / 151 筆、CP 101 檔 / 83 筆),需逐筆對照
 
