@@ -21,7 +21,7 @@
 1. ~~主機 2 機密~~ ✅(2026-10-08 12:10 完成)。
 2. ~~推 develop、部署 file-api~~ ✅;路由草稿已自動註冊(upstream `file-api`、系統 `file`)。
 3. **發佈路由**(本人):GigaItApp「服務與路由 › 發佈版本」發佈 `file` 系統的 7 條草稿(發佈會一併發佈所有草稿)。未發佈前 `/api/file/*` 經 Gateway 會 404。
-4. Claude 推 GigaItApp `develop`(GitLab)→ 前端部署 + gateway-rbac 套用(`file.*` 權限已存在,Tab 的 includes 會綁上)。
+4. ~~推 GigaItApp `develop`~~ ✅ adb51a3(deploy-test 628、rbac-test 629 成功;`it.gw-file.*` 已套用)。
 5. **測試**:測試區 `/it/` → Gateway 管理 › 檔案管理(Gherkin:GigaItApp `docs/Gherkin/gateway/files.feature`)。經 BFF 上傳單檔上限 10 MB。
 6. file-api 需重建容器時(例:機密檔重建):`ssh host2 "wsl -u root -- sh /mnt/c/Users/user/file-recreate.sh"`(腳本已放在主機 2 的 C:\Users\user\,以 CI 建好的映像 `--force-recreate`;映像標籤要改成最新 commit)。
 
