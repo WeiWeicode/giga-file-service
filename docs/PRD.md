@@ -86,8 +86,8 @@ file-api(:51272)位於 Gateway 之後:一般 API 經 BFF 轉發(`X-Internal-Toke
 | Tab | 內容 | 綁定權限 |
 | --- | --- | --- |
 | 檔案清單 | 新服務的檔案;篩選、上傳、下載、刪除;顯示備份狀態 | `file.object.read`;按鈕 `upload` / `delete` |
-| BPM 附件 | 輸入單號查詢表單附件、下載;顯示來源環境(190 正式 / 191 測試) | `file.bpm.read` |
-| 舊系統 | filebackend / SMB / PortalSolar / SDSFILES 盤點結果(數量、容量、是否已對照 UUID),唯讀 | `file.legacy.read` |
+| BPM 附件 | 切換來源(191 測試 / 190 正式)、輸入單號查詢表單附件、下載 / 預覽 | `file.bpm.read` |
+| 舊系統(F4) | filebackend / SMB / PortalSolar / SDSFILES 盤點結果(數量、容量、是否已對照 UUID),唯讀 | `file.legacy.read` |
 | 儲存與備份 | WSL 用量、NAS 備份成功 / 待補 / 失敗、重試 | `file.storage.read`;按鈕 `retry` |
 
 權限節點(已寫入 GigaItApp `deploy/gateway-rbac.yaml`:檔案清單、上傳、刪除、儲存與備份、重試 2026-10-08 上線;BPM 附件隨 F6、舊系統隨 F4;沿用 `it.gw-*` 命名;節點名稱、排序可在「選單管理」調整):
