@@ -34,14 +34,14 @@
 
 - 路由 `file.storage.backup.retry` 已發佈;NAS 以 `docker-backup` 帳號 cifs 掛載於主機 2 `/mnt/nas-docker`(fstab、`nofail`),備份根目錄 `giga-files/test/`。
 - `C:\Users\user\file-recreate.sh` 的映像標籤已改為 `997dd4cf`;之後 file-api 有新版本要重建時同步改標籤,否則會退回舊版。
-- **尚未設定(選用)**:備份失敗告警 Email — Gateway 負責人為 `file-api` 的 API Key 加 `notify.message.send`(會換發 Key → 重寫主機 2 `gw_api_key`)、建立範本 `FILE_BACKUP_FAILED`(變數 `env`、`count`、`items`、`linkUrl`),`file.env` 設 `FILE_BACKUP_ALERT_USERS`。未設定時失敗只記日誌與畫面「備份失敗」。
+- **先跳過(使用者 2026-10-08 決定)**:備份失敗告警 Email — Gateway 負責人為 `file-api` 的 API Key 加 `notify.message.send`(會換發 Key → 重寫主機 2 `gw_api_key`)、建立範本 `FILE_BACKUP_FAILED`(變數 `env`、`count`、`items`、`linkUrl`),`file.env` 設 `FILE_BACKUP_ALERT_USERS`。未設定時失敗只記日誌與畫面「備份失敗」。
 - 軟刪除後的實體清除(含 NAS)待保留期限決定(PRD §11 #4)。
 
 ### 2.3 Claude 下一批
 
 | 項目 | 內容 | 前置 |
 | --- | --- | --- |
-| F6 BPM 附件 | `/api/file/bpm/*` 三支(NaNa 唯讀 + 5144 代理)、GigaItApp「BPM 附件」Tab | NaNa 唯讀帳號、5144 金鑰更換(PRD §11 #8);5144 取檔服務的位置與 `localAttachmentPath` 寫入方式(#7) |
+| F6 BPM 附件 | `/api/file/bpm/*` 三支(NaNa 唯讀 + 5144 代理)、GigaItApp「BPM 附件」Tab | ✅ NaNa 191 唯讀帳號 `file_bpm_ro`(`db/dba/02-create-bpm-readonly.sql`,開發機 `.env` 已設,實測只能讀 5 張表;近期附件 `localAttachmentPath` 無路徑 → 需目錄規則);**5144 新金鑰**:舊金鑰寫死在 NotesApp 前端,不能直接換 → 5144(`python_BPM190191檔案下載API`)改為 `API_KEY` + `API_KEYS` 並行,待使用者重新打包 FileAPI.exe、191 執行 `add_api_key.ps1`、主機 2 執行 `deploy/host2-set-bpm-secrets.sh` |
 | F7 相容層 | `/api/file/compat/fb|smb/*`,以舊前端對測 | 相容路由公開 + 內網白名單、CORS(PRD §11 #15、#16);歷史檔先搬完(F4) |
 | F4 對照與同步 | NAS 拉取乾跑、166 同步、`legacy_file_map` | `WebAppDb` 唯讀帳號(逐筆對照)、166 同步範圍(PRD §11 #12、#13) |
 
