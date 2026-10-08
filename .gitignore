@@ -1,0 +1,18 @@
+# 機密(切勿上傳)
+.env
+.env.*
+*.env
+!.env.example
+!.env.*.example
+secrets/
+
+# 檔案實體與暫存(實體檔案只放主機 WSL 與 NAS,不進 repo)
+files/
+data/
+tmp/
+logs/
+
+# Node
+node_modules/
+dist/
+coverage/
