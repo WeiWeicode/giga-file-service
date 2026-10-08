@@ -64,7 +64,7 @@ export function fileRoutes(service: FileService, actorOf: (req: FastifyRequest) 
           operationId: 'file.object.upload',
           summary: '上傳附件',
           description:
-            'multipart/form-data 上傳一或多個檔案(欄位 file,單檔 50 MB、一次最多 10 個),選填 sourceSystem、sourceApp、refType、refNo。' +
+            'multipart/form-data 上傳一或多個檔案(欄位 file,單檔 30 MB、一次最多 10 個),選填 sourceSystem、sourceApp、refType、refNo。' +
             '未帶 refNo 為暫存檔,單據存檔時呼叫綁定 API;超過 24 小時未綁定會被清除。副檔名白名單 + 檔頭檢查,執行檔與腳本一律拒絕;任一檔不合格整批拒絕。' +
             errorRef('400 FILE_NO_FILE / VALIDATION_FAILED、413 FILE_TOO_LARGE / FILE_TOO_MANY、415 FILE_TYPE_NOT_ALLOWED / FILE_CONTENT_MISMATCH'),
           tags: ['附件'],
@@ -290,7 +290,7 @@ export function fileRoutes(service: FileService, actorOf: (req: FastifyRequest) 
           operationId: 'file.storage.get',
           summary: '儲存與備份統計',
           description:
-            '檔案數、容量、暫存檔數、NAS 備份狀態(pending / done / failed)與最近失敗清單、檔案根目錄所在磁碟的容量。NAS 備份於 F2 實作前一律為 pending。',
+            '檔案數、容量、暫存檔數、NAS 備份狀態(pending / done / failed)與最近失敗清單、磁碟容量(有主機磁碟目錄時以 Windows 主機磁碟為準,basis = host)。NAS 備份於 F2 實作前一律為 pending。',
           tags: ['儲存'],
           'x-permission': 'file.storage.read',
           'x-gherkin': [
@@ -314,7 +314,16 @@ export function fileRoutes(service: FileService, actorOf: (req: FastifyRequest) 
                     properties: { fileUuid: { type: 'string' }, originalName: { type: 'string' }, createdAt: { type: 'string', format: 'date-time' } },
                   },
                 },
-                capacity: { type: 'object', nullable: true, properties: { totalBytes: { type: 'integer' }, freeBytes: { type: 'integer' } } },
+                capacity: {
+                  type: 'object',
+                  nullable: true,
+                  properties: {
+                    totalBytes: { type: 'integer' },
+                    freeBytes: { type: 'integer' },
+                    basis: { type: 'string', enum: ['host', 'filesystem'] },
+                    filesystem: { type: 'object', properties: { totalBytes: { type: 'integer' }, freeBytes: { type: 'integer' } } },
+                  },
+                },
               },
             },
           },

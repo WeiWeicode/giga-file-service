@@ -24,7 +24,7 @@
 | S9 | 檔案類型 | 副檔名白名單 + 檢查檔頭(magic number);執行檔、腳本、MZ / ELF / shebang 檔頭一律拒絕 | 單元 | 🔶 白名單為暫定(PRD §11 #6) |
 | S10 | SVG / inline | `image/svg+xml` 一律以附件下載不 inline;`?inline=1` 只允許圖片 / PDF | 單元 | ✅ |
 | S11 | 回應標頭 | `X-Content-Type-Options: nosniff`(所有回應);`Content-Disposition` ASCII 後備 + `filename*=UTF-8''` | 單元 | ✅ |
-| S12 | 大小上限 | 單檔 50 MB(D3),Nginx 與 file-api 兩層檢查 | 單元(50 MB 通過、+1 byte 回 413 且無殘留);Nginx 層待 D4-B | 🔶 |
+| S12 | 大小上限 | 單檔 30 MB(D3),Nginx(31m,含表頭)與 file-api 兩層檢查;直送路徑由 BFF `/_auth/verify` 驗登入、路由權限與 CSRF | 單元(30 MB 通過、+1 byte 回 413 且無殘留);Nginx 層測試區實測 | 🔶 待實測 |
 | S13 | 原子寫入 | 先寫 `tmp/` 算 SHA-256 → 全部檢查通過 → rename → 寫 DB;失敗清暫存與已搬移的檔案 | 單元(整批拒絕無殘留) | ✅ |
 | S14 | 防毒掃描 | ClamAV 擴充點保留在寫 DB 前,**暫不實作** | — | ⚠️ 範圍外 |
 

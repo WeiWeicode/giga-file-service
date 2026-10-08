@@ -22,7 +22,7 @@
 2. ~~推 develop、部署 file-api~~ ✅;路由草稿已自動註冊(upstream `file-api`、系統 `file`)。
 3. **發佈路由**(本人):GigaItApp「服務與路由 › 發佈版本」發佈 `file` 系統的 7 條草稿(發佈會一併發佈所有草稿)。未發佈前 `/api/file/*` 經 Gateway 會 404。
 4. ~~推 GigaItApp `develop`~~ ✅ adb51a3(deploy-test 628、rbac-test 629 成功;`it.gw-file.*` 已套用)。
-5. **測試**:測試區 `/it/` → Gateway 管理 › 檔案管理(Gherkin:GigaItApp `docs/Gherkin/gateway/files.feature`)。經 BFF 上傳單檔上限 10 MB。
+5. **測試**:測試區 `/it/` → Gateway 管理 › 檔案管理(Gherkin:GigaItApp `docs/Gherkin/gateway/files.feature`)。單檔上限 30 MB(Nginx 直送)。
 6. file-api 需重建容器時(例:機密檔重建):`ssh host2 "wsl -u root -- sh /mnt/c/Users/user/file-recreate.sh"`(腳本已放在主機 2 的 C:\Users\user\,以 CI 建好的映像 `--force-recreate`;映像標籤要改成最新 commit)。
 
 ### 2.2 Claude 下一批(使用者測試期間進行)
@@ -31,7 +31,7 @@
 | --- | --- | --- |
 | F2 NAS 備份 | worker:pending → 複製到 NAS `giga-files/{env}/`、SHA-256 驗證、失敗告警、還原 CLI、重試 API + 「儲存與備份」重試按鈕 | NAS 子目錄與服務帳號(PRD §11 #4);主機 2 cifs 掛載由使用者執行 |
 | F6 BPM 附件 | `/api/file/bpm/*` 三支(NaNa 唯讀 + 5144 代理)、GigaItApp「BPM 附件」Tab | NaNa 唯讀帳號、5144 金鑰更換(PRD §11 #8) |
-| D4-B 50 MB 直送 | Gateway Nginx 上傳 location `auth_request` 直送 file-api | **跨 repo,需使用者同意** |
+| D4-B 30 MB 直送 | Gateway Nginx 上傳 location `auth_request` 直送 file-api | **跨 repo,需使用者同意** |
 | F7 相容層 | `/api/file/compat/fb|smb/*`,以舊前端對測 | 相容路由公開 + 內網白名單、CORS(PRD §11 #15、#16);歷史檔先搬完(F4) |
 | F4 對照與同步 | NAS 拉取乾跑、166 同步、`legacy_file_map` | `WebAppDb` 唯讀帳號(逐筆對照)、166 同步範圍(PRD §11 #12、#13) |
 

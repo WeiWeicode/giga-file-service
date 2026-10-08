@@ -6,7 +6,7 @@
 import { randomUUID } from 'node:crypto';
 import type { Readable } from 'node:stream';
 import { AppError, accessDenied, notFound } from '../../errors.js';
-import { LocalStore, type TempFile } from '../storage/local-store.js';
+import { LocalStore, type Capacity, type TempFile } from '../storage/local-store.js';
 import { canInline, checkFileType, contentDisposition, DEFAULT_ALLOWED_EXTS, sanitizeOriginalName } from './file-types.js';
 import { inScope, type FileRecord, type FileRepo, type ListFilter, type NewFile, type Scope, type StorageStats } from './types.js';
 
@@ -179,7 +179,7 @@ export class FileService {
     return n;
   }
 
-  async stats(): Promise<StorageStats & { capacity: { totalBytes: number; freeBytes: number } | null }> {
+  async stats(): Promise<StorageStats & { capacity: Capacity | null }> {
     const [s, capacity] = await Promise.all([this.repo.stats(), this.store.capacity()]);
     return { ...s, capacity };
   }

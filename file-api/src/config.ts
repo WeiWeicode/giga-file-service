@@ -9,6 +9,7 @@
  *   FILE_ALLOWED_EXTS     允許的副檔名(逗號分隔);未設定用 file-types.ts 的暫定清單(PRD §11 #6 待定)
  *   TEMP_RETENTION_HOURS  未綁定暫存檔保留時數(預設 24,API.md §2)
  *   DEV_SKIP_TOKEN        dev 專用:不驗證 X-Internal-Token(本機直連);非 dev 設定即啟動失敗
+ *   HOST_DISK_PATH        選用:Windows 主機磁碟上的任一目錄(唯讀掛載),容量以它為準(WSL 虛擬磁碟的大小不代表實際可用空間)
  */
 import { readFileSync } from 'node:fs';
 import { isGatewayPort, loadGatewayEnv, loadMonitorEnv, type GatewayEnv, type MonitorEnv } from '@giganexus/backend-sdk';
@@ -29,7 +30,7 @@ export interface Config {
   logLevel: string;
   fileRoot: string;
   sql: SqlConfig;
-  /** 單檔上限(D3:50 MB) */
+  /** 單檔上限(D3:30 MB) */
   maxFileBytes: number;
   /** 單一請求最多幾個檔案 */
   maxFilesPerRequest: number;
@@ -37,13 +38,16 @@ export interface Config {
   allowedExts: string[] | null;
   tempRetentionHours: number;
   devSkipToken: boolean;
+  /** null = 只看檔案根目錄所在的檔案系統 */
+  hostDiskPath: string | null;
 }
 
 export class ConfigError extends Error {
   override name = 'ConfigError';
 }
 
-export const MAX_FILE_BYTES = 50 * 1024 * 1024;
+/** D3(2026-10-08 由 50 MB 改為 30 MB) */
+export const MAX_FILE_BYTES = 30 * 1024 * 1024;
 
 /** 讀 NAME 或 NAME_FILE(Docker secret);strictFile:test / prod 只接受 _FILE(AGENT.md §6) */
 export function secret(env: NodeJS.ProcessEnv, name: string, strictFile: boolean): string | undefined {
@@ -100,5 +104,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env, cwd?: string): 
     allowedExts: exts && exts.length > 0 ? exts : null,
     tempRetentionHours: retention,
     devSkipToken: isDev && flag(env.DEV_SKIP_TOKEN),
+    hostDiskPath: env.HOST_DISK_PATH || null,
   };
 }

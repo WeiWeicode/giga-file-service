@@ -52,7 +52,7 @@
 ### F1 file-api 主體
 
 - 交付物:repo 骨架(Fastify 5 + TypeScript,比照 itapp-api / `samples/node-backend`)、`docs/PROJECT-MAP.md` 更新、Drizzle schema 與 migration(schema `file_svc`、紀錄表分開,[DATABASE.md](DATABASE.md) §0.2)、[API.md](API.md) §2 上傳 / 下載 / 清單 / 綁定 / 刪除、暫存清除排程、OpenAPI(含 `x-permission`、`x-gherkin`)、自動註冊、giga-observe 接入、Dockerfile 與 CI。
-- 驗收:`npm test`、`typecheck`、`build` 通過;測試區經 Gateway 實測上傳 / 下載(含中文檔名)/ 刪除;50 MB 直送路徑(需 Gateway Nginx 變更,[DEPLOYMENT.md](DEPLOYMENT.md) §4);SECURITY-CHECKLIST S1–S13、S19–S21 更新狀態。
+- 驗收:`npm test`、`typecheck`、`build` 通過;測試區經 Gateway 實測上傳 / 下載(含中文檔名)/ 刪除;30 MB 直送路徑(需 Gateway Nginx 變更,[DEPLOYMENT.md](DEPLOYMENT.md) §4);SECURITY-CHECKLIST S1–S13、S19–S21 更新狀態。
 
 ### F2 NAS 備份
 

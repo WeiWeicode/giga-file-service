@@ -24,6 +24,26 @@ export interface TempFile {
   truncated: boolean;
 }
 
+export interface Disk {
+  totalBytes: number;
+  freeBytes: number;
+}
+
+export interface Capacity extends Disk {
+  basis: 'host' | 'filesystem';
+  /** 檔案根目錄所在檔案系統(WSL 虛擬磁碟) */
+  filesystem: Disk;
+}
+
+async function diskOf(p: string): Promise<Disk | null> {
+  try {
+    const s = await statfs(p);
+    return { totalBytes: s.blocks * s.bsize, freeBytes: s.bavail * s.bsize };
+  } catch {
+    return null;
+  }
+}
+
 export class PathEscapeError extends Error {
   override name = 'PathEscapeError';
 }
@@ -32,7 +52,11 @@ export class LocalStore {
   readonly root: string;
   private readonly tmpDir: string;
 
-  constructor(root: string) {
+  /** hostDiskPath:Windows 主機磁碟上的目錄(唯讀掛載);WSL 的 ext4.vhdx 是稀疏檔,大小上限(預設 1 TB)不代表主機實際可用空間 */
+  constructor(
+    root: string,
+    private readonly hostDiskPath: string | null = null,
+  ) {
     this.root = path.resolve(root);
     this.tmpDir = path.join(this.root, 'tmp');
   }
@@ -124,13 +148,17 @@ export class LocalStore {
     await rm(this.resolveKey(storageKey), { force: true });
   }
 
-  /** 檔案根目錄所在檔案系統的容量(STORAGE.md §1;「儲存與備份」Tab) */
-  async capacity(): Promise<{ totalBytes: number; freeBytes: number } | null> {
-    try {
-      const s = await statfs(this.root);
-      return { totalBytes: s.blocks * s.bsize, freeBytes: s.bavail * s.bsize };
-    } catch {
-      return null;
-    }
+  /**
+   * 容量(STORAGE.md §1;「儲存與備份」Tab):
+   *   - basis host:有主機磁碟目錄時,總量 = 主機磁碟,剩餘 = min(主機磁碟剩餘, 檔案系統剩餘)(檔案實際佔用主機磁碟)
+   *   - basis filesystem:只有檔案根目錄所在檔案系統(WSL 內為虛擬磁碟上限,僅供參考)
+   * 取不到時回 null(畫面顯示「無法取得」),不影響其他統計。
+   */
+  async capacity(): Promise<Capacity | null> {
+    const fs = await diskOf(this.root);
+    if (!fs) return null;
+    const host = this.hostDiskPath ? await diskOf(this.hostDiskPath) : null;
+    if (!host) return { ...fs, basis: 'filesystem', filesystem: fs };
+    return { totalBytes: host.totalBytes, freeBytes: Math.min(host.freeBytes, fs.freeBytes), basis: 'host', filesystem: fs };
   }
 }

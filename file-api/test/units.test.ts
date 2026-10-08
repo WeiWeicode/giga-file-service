@@ -78,6 +78,16 @@ describe('LocalStore(STORAGE.md §1)', () => {
     assert.equal(withSep(`x${path.sep}`), `x${path.sep}`);
     assert.equal(withSep('x'), `x${path.sep}`);
   });
+  it('容量:有主機磁碟目錄時以主機為準,取不到則退回檔案系統', async () => {
+    const r = root();
+    const fsOnly = await new LocalStore(r).capacity();
+    assert.equal(fsOnly?.basis, 'filesystem');
+    const host = await new LocalStore(r, tmpdir()).capacity();
+    assert.equal(host?.basis, 'host');
+    assert.ok(host!.freeBytes <= host!.filesystem.freeBytes);
+    const missing = await new LocalStore(r, path.join(tmpdir(), 'no-such-host-disk')).capacity();
+    assert.equal(missing?.basis, 'filesystem');
+  });
   it('discard 只能刪 tmp 內的檔案', async () => {
     const s = new LocalStore(root());
     await assert.rejects(s.discard(path.join(s.root, '2026/10/x')), PathEscapeError);
@@ -93,11 +103,12 @@ describe('設定(AGENT.md §6)', () => {
     FILE_DB_NAME: 'n',
     FILE_DB_USER: 'u',
   };
-  it('dev 預設 port 51272、host 127.0.0.1、50 MB', () => {
+  it('dev 預設 port 51272、host 127.0.0.1、30 MB', () => {
     const c = loadConfig({ ...base, GW_ENV: 'dev', FILE_DB_PASSWORD: 'p' });
     assert.equal(c.port, 51272);
     assert.equal(c.host, '127.0.0.1');
-    assert.equal(c.maxFileBytes, 50 * 1024 * 1024);
+    assert.equal(c.maxFileBytes, 30 * 1024 * 1024);
+    assert.equal(c.hostDiskPath, null);
     assert.equal(c.allowedExts, null);
   });
   it('test / prod 不可設 DEV_SKIP_TOKEN,密碼只接受 _FILE', () => {

@@ -14,7 +14,7 @@
 | 身分 | 只信任 Gateway 的 `X-Internal-Token`;權限由 BFF 依 `x-permission` 檢查,file-api 只做資料層級過濾(§1.2) |
 | 錯誤 | Gateway 統一格式 `{ code, message, requestId, details? }`,自訂代碼 `FILE_` 開頭;**相容層例外**(§4 規則 1) |
 | 分頁 | `page`、`pageSize`(上限 100),回應 `{ items, total, page, pageSize }`;相容層 `/sql-files` 特例見 §4 規則 8 |
-| 大小 | 單檔 50 MB(D3);大於 10 MB 的上傳走 Nginx `auth_request` 直送(D4-B,[ARCHITECTURE.md](ARCHITECTURE.md) §2) |
+| 大小 | 單檔 30 MB(D3);上傳 `POST /api/file/files` 一律由 Nginx `auth_request` 後直送 file-api(D4-B,[ARCHITECTURE.md](ARCHITECTURE.md) §2),不受 BFF 10 MB 限制 |
 | 下載標頭 | `Content-Disposition` 同時給 ASCII 後備名與 `filename*=UTF-8''…`;`X-Content-Type-Options: nosniff` |
 | 稽核 | 上傳 / 下載 / 刪除 / 綁定寫 `file_access_log`([DATABASE.md](DATABASE.md) §2) |
 | 錯誤代碼 | 400 `FILE_NO_FILE`、`VALIDATION_FAILED`;401 `FILE_INTERNAL_TOKEN_INVALID`;403 `DATA_ACCESS_DENIED`;404 `FILE_NOT_FOUND`;413 `FILE_TOO_LARGE`、`FILE_TOO_MANY`;415 `FILE_TYPE_NOT_ALLOWED`、`FILE_CONTENT_MISMATCH`;500 `FILE_STORAGE_MISSING`(有紀錄無實體檔)、`INTERNAL_ERROR` |
@@ -61,7 +61,7 @@
 
 **上傳的檢查順序**:multipart 串流邊收邊寫 `tmp/`(同時算 SHA-256)→ 全部檔案收完 → 每個檔案檢查大小、副檔名白名單、檔頭 → **全部通過**才 rename 到正式路徑並寫資料庫;任一個不合格整批拒絕並清掉暫存。
 
-**大小**:file-api 本身接受 50 MB;經 BFF 動態路由時受 BFF 10 MB 限制,大於 10 MB 需 Gateway Nginx 直送路徑(D4-B,[DEPLOYMENT.md](DEPLOYMENT.md) §4,尚未實作)。
+**大小**:單檔 30 MB(D3)。`POST /api/file/files` 由 Gateway Nginx 驗證後直送 file-api(D4-B,[ARCHITECTURE.md](ARCHITECTURE.md) §2),不受 BFF 10 MB 限制;Nginx 該 location 上限 31m(含 multipart 表頭)。
 
 ## 3. BPM 附件(唯讀)
 
@@ -125,7 +125,7 @@
 3. **欄位對應**:`SourcePlatform → source_system`、`SourceApplication → source_app`、`SourceNumber → ref_no`、`userNumber → uploaded_by`、`Effective → deleted_at IS NULL`、`filesize → size_bytes`、`mimetype → mime`。
 4. **身分**:舊前端(嵌在 BPM 表單內)沒有 Gateway 登入,和現況一樣只帶 `userNumber`。相容路由建議 `auth_mode = public`(需 IT 核准,PRD §11 #15)並由 Nginx **只放行內網來源**,等同現況的暴露程度;不得因此放寬新 API(§2)的驗證。
 5. **上傳進哪裡**:切換之後,舊前端的新上傳進新服務(UUID 檔),舊服務不再收到新檔。因此**某個舊服務的歷史檔案([MIGRATION.md](MIGRATION.md) §2)搬完並驗證後,才切換該服務的前端**。
-6. **大小**:相容上傳路由比照 D3 / D4 的 50 MB 直送路徑(舊 SMB 上限 100 MB,超過者先在畫面提示)。
+6. **大小**:相容上傳路由比照 D3 / D4 的 30 MB 直送路徑(舊 SMB 上限 100 MB,超過者先在畫面提示)。
 7. 資料庫連不上時舊 `filebackend` 會「退回只存檔案系統」(`databaseLogged:false`);相容層**不退回**,直接回 503,避免檔案沒記錄。
 8. **`/sql-files` 預設筆數**([LEGACY-INVENTORY.md](LEGACY-INVENTORY.md) §4.1 觀察 4):舊預設只回 50 筆,而 `FileUpload.vue` 在前端篩 `sourceNumber`,造成較舊單據查不到。相容層**沒帶 `limit` 時回傳全部有效檔(上限 1000)**,有帶 `limit` / `offset` 時照舊;這是**刻意與舊行為不同**的缺陷修正(PRD §11 #16)。前端若之後改用 `/sql-files-by-source` 則不受影響。
 9. **CORS**:舊前端是瀏覽器跨來源直接呼叫。改走 Gateway 後 CORS 由 Gateway 處理,需請 Gateway 負責人把 BPM 前端的來源加入白名單,並暴露 `Content-Disposition`(舊服務已設 `Access-Control-Expose-Headers`),否則下載的中文檔名會取不到(PRD §11 #16)。

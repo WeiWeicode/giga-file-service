@@ -12,7 +12,7 @@ import { LocalStore } from './modules/storage/local-store.js';
 
 const config = loadConfig();
 const pool = await openPool(config.sql, { appName: 'giganexus-file-api' });
-const store = new LocalStore(config.fileRoot);
+const store = new LocalStore(config.fileRoot, config.hostDiskPath);
 await store.init();
 const service = new FileService({
   repo: new DrizzleFileRepo(createDb(pool, config.gateway.gwEnv !== 'prod')),

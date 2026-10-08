@@ -43,7 +43,7 @@ flowchart LR
 | 下載 | BFF 以串流回傳上游 body | 不受影響 |
 | 既有 multipart | `@fastify/multipart` 用於路由匯入、公告內文圖片(`/api/notify/assets`) | 公告圖片維持在 BFF,不搬 |
 
-定案(D4-B):**上傳路由**由 Nginx `auth_request` 問 BFF 權限後**直接串流到 file-api**(同 `/ws/endpoint/*` 做法),只對上傳路由放寬到 50 MB;**BFF 全域 10 MB 不動**。其餘 API(清單、下載、BPM)照一般路由經 BFF。
+定案(D4-B):**上傳路由**由 Nginx `auth_request` 問 BFF 權限後**直接串流到 file-api**(同 `/ws/endpoint/*` 做法),只對上傳路由放寬到 31m(單檔 30 MB 加 multipart 表頭);**BFF 全域 10 MB 不動**。其餘 API(清單、下載、BPM)照一般路由經 BFF。
 
 ```mermaid
 sequenceDiagram
@@ -51,14 +51,14 @@ sequenceDiagram
     participant N as Nginx
     participant B as BFF
     participant F as file-api
-    U->>N: POST /api/file/files(multipart,≤ 50 MB)
+    U->>N: POST /api/file/files(multipart,≤ 30 MB)
     N->>B: auth_request(只送標頭)
     B-->>N: 200 + X-Internal-Token(或 401 / 403)
     N->>F: 串流 body + X-Internal-Token
     F-->>U: 201 { file_uuid, … }
 ```
 
-需要修改 Gateway `nginx/`(上傳 location、相容路由內網白名單),屬**跨 repo 修改**,實作時先取得同意並在 Gateway 留紀錄([DEPLOYMENT.md](DEPLOYMENT.md) §4)。
+**已實作(2026-10-08)**:Gateway `nginx/conf.d/portal.conf` 的 `location = /api/file/files`(POST 直送、其他方法 `@api_via_bff`);BFF `/_auth/verify` 依已發佈的路由表檢查權限、簽出 aud = `file-api` 的內部 Token,並對非 GET 的原請求補驗 CSRF(Cookie 另有 SameSite=Strict)。直送的上傳不經 BFF 的路由層限流與稽核,由 file-api 的 `file_access_log` 記錄。相容路由內網白名單仍待 F7([DEPLOYMENT.md](DEPLOYMENT.md) §4)。
 
 ## 3. 關鍵架構決策
 

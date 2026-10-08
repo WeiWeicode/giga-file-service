@@ -11,8 +11,8 @@
 | 項目 | 內容 |
 | --- | --- |
 | 產品名稱 | GigaNexus 附件服務(repo `giga-file-service`,服務 `file-api`) |
-| 文件版本 | **v0.8**(2026-10-08) |
-| 版本紀錄 | v0.8(2026-10-08,D7 改為沿用 Gateway 資料庫 `giganexus_gw` 的獨立 schema `file_svc`,不另建資料庫;新增 D17:本服務資料表用 Drizzle ORM、舊資料庫唯讀查詢用 `mssql`);v0.7(2026-10-08,原 `FILE-PLAN.md` 依 Gateway `docs/` 做法拆分為 PRD + 主題文件(§12 對照表);新增 D16:畫面放 GigaItApp「Gateway 管理」目錄下的「檔案管理」選單(§8));v0.6(2026-10-08,納入 `smbFileUpload` 統計、相容層規則 12);v0.5(2026-10-08,`webFileUpload` 依平台 / 應用統計、相容層規則 10–11);v0.4(2026-10-08,122 生產區 log 觀察、相容層規則 8、9);v0.3(2026-10-08,D2–D15 定案);v0.2(2026-10-07,納入 BPM 表單附件);v0.1(2026-10-07,初稿) |
+| 文件版本 | **v0.9**(2026-10-08) |
+| 版本紀錄 | v0.9(2026-10-08,D3 單檔上限由 50 MB 改為 30 MB(使用者測試後指示);D4-B 上傳直送已實作(Gateway Nginx `location = /api/file/files` + BFF `/_auth/verify` 補驗 CSRF));v0.8(2026-10-08,D7 改為沿用 Gateway 資料庫 `giganexus_gw` 的獨立 schema `file_svc`,不另建資料庫;新增 D17:本服務資料表用 Drizzle ORM、舊資料庫唯讀查詢用 `mssql`);v0.7(2026-10-08,原 `FILE-PLAN.md` 依 Gateway `docs/` 做法拆分為 PRD + 主題文件(§12 對照表);新增 D16:畫面放 GigaItApp「Gateway 管理」目錄下的「檔案管理」選單(§8));v0.6(2026-10-08,納入 `smbFileUpload` 統計、相容層規則 12);v0.5(2026-10-08,`webFileUpload` 依平台 / 應用統計、相容層規則 10–11);v0.4(2026-10-08,122 生產區 log 觀察、相容層規則 8、9);v0.3(2026-10-08,D2–D15 定案);v0.2(2026-10-07,納入 BPM 表單附件);v0.1(2026-10-07,初稿) |
 | 相關文件 | Gateway [BACKEND-GUIDE.md](../../giga-api-gateway-bff/docs/BACKEND-GUIDE.md) §2.1、§3、§4、[DEPLOYMENT.md](../../giga-api-gateway-bff/docs/DEPLOYMENT.md) §6、[FRONTEND-GUIDE.md](../../giga-api-gateway-bff/docs/FRONTEND-GUIDE.md) §7.5;GigaItApp `docs/UI-GUIDE.md`;舊系統 `GeneralBackend/filebackend`、`GeneralBackend/SMBbackend`、`old_PortalSolar` |
 
 ## 2. 產品概述
@@ -48,8 +48,8 @@
 | --- | --- | --- | --- |
 | D1 | 放在 BFF 還是新 repo | **新 repo `giga-file-service`**。理由:BACKEND-GUIDE §2.1 BFF 不做業務邏輯;檔案 I/O 與 Gateway 隔離;§3.2 已將 51270–51279 留給「共用服務(公告、檔案等)」 | ✅ 定案 |
 | D2 | 服務代碼 / port | `file-api` / **51272**(51271 為 portal-api);系統代碼 `file`,API `/api/file/*` | ✅ 定案;實作時登記 BACKEND-GUIDE §3.3 |
-| D3 | 單檔大小上限 | **50 MB**(≤ 10 MB 可直接經 BFF,更大走 D4-B) | ✅ 定案 |
-| D4 | 大檔上傳路徑 | **B**:上傳由 Nginx `auth_request` 問 BFF 權限後**直接串流到 file-api**,只對上傳路由放寬到 50 MB;BFF 全域 10 MB 不動([ARCHITECTURE.md](ARCHITECTURE.md) §2) | ✅ 定案 |
+| D3 | 單檔大小上限 | **30 MB**(2026-10-08 由 30 MB 改;上傳一律走 D4-B 直送,不受 BFF 10 MB 限制) | ✅ 定案 |
+| D4 | 大檔上傳路徑 | **B**:`POST /api/file/files` 由 Nginx `auth_request` 問 BFF(登入、路由權限、CSRF)後**直接串流到 file-api**,只對該 location 放寬到 31m;BFF 全域 10 MB 不動;清單等其他方法照常經 BFF([ARCHITECTURE.md](ARCHITECTURE.md) §2) | ✅ 已實作(2026-10-08) |
 | D5 | 檔案存放位置 | WSL 檔案系統 `/srv/giga-files/{env}`(bind mount 進容器);**不放 `/mnt/c`**([STORAGE.md](STORAGE.md) §1) | ✅ 採用 |
 | D6 | NAS 備份方式 | WSL 以 cifs 掛載 `\\10.10.130.31\docker-folder`,**排程補傳**(非雙寫),DB 記錄備份狀態;路徑 `giga-files/{env}/`([STORAGE.md](STORAGE.md) §2) | ✅ 採用;子目錄與服務帳號待 IT(§11 #4) |
 | D7 | 資料庫 | **沿用 Gateway 的 `giganexus_gw`**(正式)/ `giganexus_gw_test`(開發 + 測試)/ `giganexus_gw_poc_test`(整合測試),資料表放獨立 schema **`file_svc`**;只有少量資料表,不另建資料庫。帳號為本服務自有、只授權 `file_svc`,分 app / migrate;migration 紀錄表與 Gateway 分開([DATABASE.md](DATABASE.md) §0、§0.2) | ✅ 定案(2026-10-08 改;建 schema 與帳密由使用者執行) |
@@ -130,7 +130,7 @@ file-api(:51272)位於 Gateway 之後:一般 API 經 BFF 轉發(`X-Internal-Toke
 
 編號沿用 FILE-PLAN §13,不重新編號。
 
-1. ~~單檔大小上限(D3)、上傳走法(D4)~~ 已定案(50 MB、Nginx 直送)。
+1. ~~單檔大小上限(D3)、上傳走法(D4)~~ 已定案(30 MB、Nginx 直送)。
 2. ~~資料庫名稱與主機(D7)~~ 已定案(比照 Gateway);建庫與帳密由使用者執行。
 3. 是否可唯讀存取 `\\10.10.130.166\PortalSolar`、`\\10.10.130.190\SDSFILES` 與相關 DB 進行 F0 盤點。**2026-10-08**:166 與 NAS 已可由開發機唯讀存取並完成盤點([LEGACY-INVENTORY.md](LEGACY-INVENTORY.md) §6);190 `SDSFILES` 與 `WebAppDb` 唯讀帳號仍待提供(逐筆對照需要)。
 4. NAS 子目錄與服務帳號;保留期限(軟刪除後多久實體清除)。

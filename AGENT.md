@@ -114,7 +114,7 @@
 
 - 部署區只有這三個值;不要新增 `staging`、`product` 之類的名稱。缺少必要設定時**啟動失敗**,不要加預設值繞過檢查。
 - 部署沿用 Gateway 的 GitLab 流程:`develop` → 主機 2 測試區,`main` → 主機 3 正式區,容器加入 Gateway Docker 網路(`../giga-api-gateway-bff/docs/DEPLOYMENT.md`、BACKEND-GUIDE §3.1)。**本 repo 目前尚未建立 GitLab remote。**
-- 上傳走 Nginx `auth_request` 直送 file-api、放寬到 50 MB(D4-B)需要改 Gateway 的 `nginx/`:**跨 repo 修改,先說明並取得同意**;BFF 全域 10 MB 限制不動。
+- 上傳走 Nginx `auth_request` 直送 file-api、放寬到 31m(單檔 30 MB 加 multipart 表頭)(D4-B)需要改 Gateway 的 `nginx/`:**跨 repo 修改,先說明並取得同意**;BFF 全域 10 MB 限制不動。
 - 主機連線慣例(`ssh host1` / `host2`、WSL 內 Docker 指令)見工作區 `../AGENT.md` §5;需要 root 的指令請本人執行。
 
 ---
@@ -191,7 +191,7 @@
 | 錯誤 | `throw new AppError(status, code, message, details?)`,格式 `{ code, message, requestId, details? }`;自訂代碼以 **`FILE_`** 開頭,不可用 `UNAUTHENTICATED`、`PERMISSION_DENIED`、`CSRF_INVALID`、`UPSTREAM_*`;不回傳堆疊或 SQL(相容層例外格式見 §7.4) |
 | 冪等 | `GET` / `PUT` / `DELETE` 必須冪等(Gateway 只重試冪等方法);上傳 `POST` 建議支援 `Idempotency-Key` |
 | 分頁 | `page`、`pageSize`(上限 100)、回應 `{ items, total, page, pageSize }`;**清單由後端篩選與分頁**;相容層 `/sql-files` 的特例見 API §4.4 規則 8 |
-| 大小 | 單檔上限 50 MB(D3);預設逾時 10 秒,下載與同步以串流與背景工作處理,不要把整個檔案讀進記憶體 |
+| 大小 | 單檔上限 30 MB(D3);預設逾時 10 秒,下載與同步以串流與背景工作處理,不要把整個檔案讀進記憶體 |
 | 標頭 | 不回 `Set-Cookie`、CORS、`Server`、`X-Powered-By` |
 | 日誌 / 監控 | 寫入 `X-Request-Id`;接入 giga-observe(BACKEND-GUIDE §11);**不在日誌記錄原檔名以外的敏感內容、帳密、Token** |
 

@@ -299,7 +299,7 @@ describe('檔案安全(file-safety.feature)', () => {
     assert.equal(repo.files.length, 0);
   });
 
-  it('超過 50 MB 拒絕', async () => {
+  it('超過 30 MB 拒絕', async () => {
     const big = Buffer.alloc(MAX_FILE_BYTES + 1, 0x41);
     PDF.copy(big);
     const res = await upload([{ name: '大檔.pdf', content: big }]);
@@ -308,7 +308,7 @@ describe('檔案安全(file-safety.feature)', () => {
     assert.deepEqual(listStored(t.root), { stored: [], tmp: 0 });
   });
 
-  it('剛好 50 MB 可以上傳', async () => {
+  it('剛好 30 MB 可以上傳', async () => {
     const exact = Buffer.alloc(MAX_FILE_BYTES, 0x41);
     PDF.copy(exact);
     const res = await upload([{ name: '剛好.pdf', content: exact }]);

@@ -39,7 +39,7 @@
 3. **推 `develop`**:CI `check:file-api` → `deploy-test`(建置映像、`up -d --wait`、`/readyz`、無 Token 回 401)。
 4. **發佈路由**:file-api 啟動後自動註冊為 Gateway **草稿**;在 GigaItApp「服務與路由」審查 `file` 系統的 7 條路由後發佈。
 5. **畫面權限**:GigaItApp `deploy/gateway-rbac.yaml` 的 `it.gw-file.*`(PRD §8)隨 GigaItApp develop 部署套用。
-6. 上傳經 BFF 時單檔上限為 **10 MB**(BFF 全域限制);50 MB 直送待 §4 Nginx 變更。
+6. 上傳由 Nginx 直送 file-api(§4),單檔 30 MB。
 
 ## 3. 主機目錄與掛載
 
@@ -86,5 +86,5 @@
 - [ ] NAS 掛載可寫 `giga-files/{env}/`,舊來源掛載為唯讀(試寫應失敗)
 - [ ] 機密檔皆就位,容器以 `*_FILE` 讀取
 - [ ] `/healthz` 200;自動註冊的路由在 Gateway 為草稿,審查後發佈
-- [ ] 上傳 50 MB 測試檔經 Nginx 直送成功,BFF 記憶體無明顯上升
+- [ ] 上傳 30 MB 測試檔經 Nginx 直送成功,BFF 記憶體無明顯上升
 - [ ] NAS 補傳成功、SHA-256 相符;中斷 NAS 後恢復可自動補

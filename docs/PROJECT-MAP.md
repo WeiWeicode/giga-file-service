@@ -19,7 +19,7 @@ giga-file-service/
    ├─ src/
    │  ├─ server.ts            進入點:連 SQL Server、準備檔案根目錄、啟動;每小時清除逾期暫存檔
    │  ├─ app.ts               Fastify 組裝:X-Internal-Token 驗證(dev 可 DEV_SKIP_TOKEN)、actorOf(身分 → 資料範圍)、
-   │  │                       multipart(串流、50 MB)、統一錯誤格式、/healthz /readyz /openapi.json、setupGateway(監控 + 自動註冊)
+   │  │                       multipart(串流、30 MB)、統一錯誤格式、/healthz /readyz /openapi.json、setupGateway(監控 + 自動註冊)
    │  ├─ config.ts            設定(部署區、FILE_ROOT、FILE_DB_*、_FILE 機密、暫存保留時數)
    │  ├─ errors.ts、openapi.ts(x-gateway、權限宣告)、print-openapi.ts、migrate.ts(Drizzle migrator,紀錄表 file_svc)
    │  ├─ routes/files.ts      /v1/files*、/v1/storage(API.md §2):schema、x-permission、x-gherkin、格式轉換
@@ -55,4 +55,4 @@ giga-file-service/
 
 - 白名單為暫定(PRD §11 #6);資料範圍為第一版(PRD §11 #5)。
 - 暫存檔清除在 API 行程內每小時執行(worker 行程於 F2 NAS 備份時再拆)。
-- 上傳經 BFF 時受 10 MB 限制,50 MB 直送待 Gateway Nginx 變更(DEPLOYMENT §4)。
+- 上傳由 Gateway Nginx 直送 file-api(D4-B),其他 API 經 BFF。
