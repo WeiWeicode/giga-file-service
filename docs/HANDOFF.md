@@ -41,12 +41,9 @@
 ### 2.3 F6 BPM 附件 — 測試區驗收與正式區 190
 
 - **191(測試區)✅ 2026-10-08 驗收**:路由已發佈、主機 2 機密已寫入;經 Gateway 依單號查詢(完全比對,前綴不混入)、下載 203,015 bytes xlsx 中文檔名正確、`file_access_log` 有 `bpm_download`。
-- **190(正式區)**:使用者要求測試區畫面也能查 190 → file-api 改為兩個來源(`?env=test|prod`、`GET /bpm/sources`),主機 2 設定已改名為 `BPM_TEST_*`、`bpm/test_*`。待使用者:
-  1. 190 以 sa 執行 `file-api/db/dba/02-create-bpm-readonly.sql`(密碼與 191 不同)。
-  2. 發佈 `file` 系統新草稿 `file.bpm.sources`(其他 3 條參數變更也一併發佈)。
-  3. `ssh -t host2 "wsl -u root -- sh /mnt/c/Users/user/host2-set-bpm-secrets.sh prod"`(190 的 NaNa 密碼、190 的 5144 金鑰)。
-  4. 告訴 Claude → 重建容器(`file-recreate.sh`,標籤改成最新 commit)並驗收 190。
-- 開發機 `.env`:不帶前綴的 `BPM_*` 視為 191;要測 190 另加 `BPM_PROD_*`(`.env.example`)。
+- **190(正式區)✅ 2026-10-08 驗收(API)**:file-api 改為兩個來源(`?env=test|prod`、`GET /bpm/sources`),主機 2 `BPM_TEST_*` / `BPM_PROD_*` 與 `bpm/{test,prod}_*` 已就位;經 Gateway `?env=prod` 查 `CustomerSpecificReqListProcess00000006` 得 3 個附件(與 191 資料不同),下載 xlsx 1.4 MB、jpg `?inline=1` 預覽正常;190 的 Doid 帶 `env=test` 回 404。
+- **待使用者**:發佈 `file` 系統草稿 `file.bpm.sources`(未發佈前「BPM 附件」頁顯示「無法取得 BPM 來源」);發佈後 Claude 以畫面確認切換測試區 / 正式區。
+- 開發機 `.env`:`.env.example` 已改為 `BPM_TEST_*`(191)與 `BPM_PROD_*`(190)兩段;舊的不帶前綴 `BPM_*` 仍視為 191。某來源不用時把其 `DB_HOST` 留空(有填就必須填齊密碼與金鑰)。
 
 ### 2.4 Claude 下一批
 

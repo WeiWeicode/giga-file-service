@@ -1,21 +1,24 @@
 /**
- * BPM 附件真實來源冒煙測試(唯讀;npm run test:legacy):NaNa(BPM_DB_*,唯讀帳號 file_bpm_ro)與 5144(BPM_FILE_URL、BPM_FILE_API_KEY)。
+ * BPM 附件真實來源冒煙測試(唯讀;npm run test:legacy):測試區 191 的 NaNa(BPM_TEST_DB_*,未設定沿用 BPM_DB_*;唯讀帳號 file_bpm_ro)
+ * 與 5144(BPM_TEST_FILE_URL、BPM_TEST_FILE_API_KEY)。
  *   - 只執行 SELECT 與 GET;不寫入 NaNa、不改 5144 上的檔案
- *   - 未設定 BPM_DB_HOST 時明確失敗並說明「未查詢」,不當作沒有附件
+ *   - 未設定 DB_HOST 時明確失敗並說明「未查詢」,不當作沒有附件
  */
 import assert from 'node:assert/strict';
 import { after, describe, it } from 'node:test';
 import { BpmDocServer, chunks } from '../../src/modules/bpm/doc-server.js';
 import { NanaBpmRepo } from '../../src/modules/bpm/nana-repo.js';
 
-const e = process.env;
-if (!e.BPM_DB_HOST) throw new Error('BPM_DB_HOST 未設定(NaNa 唯讀帳號,file-api/.env);未查詢');
+/** 測試區設定:BPM_TEST_* 優先,沿用最初的 BPM_*(同 config.ts) */
+const v = (k: string) => process.env[`BPM_TEST_${k}`] || process.env[`BPM_${k}`];
+const host = v('DB_HOST');
+if (!host) throw new Error('BPM_TEST_DB_HOST 未設定(NaNa 唯讀帳號,file-api/.env);未查詢');
 const repo = new NanaBpmRepo({
-  server: e.BPM_DB_HOST,
-  port: Number(e.BPM_DB_PORT ?? 1433),
-  database: e.BPM_DB_NAME ?? 'NaNa',
-  user: e.BPM_DB_USER!,
-  password: e.BPM_DB_PASSWORD!,
+  server: host,
+  port: Number(v('DB_PORT') ?? 1433),
+  database: v('DB_NAME') || 'NaNa',
+  user: v('DB_USER')!,
+  password: v('DB_PASSWORD')!,
 });
 after(() => repo.close());
 
@@ -39,9 +42,9 @@ describe('BPM NaNa(唯讀)', () => {
   });
 });
 
-describe('BPM 取檔服務 5144(唯讀)', { skip: !e.BPM_FILE_API_KEY && 'BPM_FILE_API_KEY 未設定' }, () => {
+describe('BPM 取檔服務 5144(唯讀)', { skip: !v('FILE_API_KEY') && 'BPM_TEST_FILE_API_KEY 未設定' }, () => {
   it('依預測段數第一次就取到附件,內容非空', async () => {
-    const docs = new BpmDocServer({ baseUrl: e.BPM_FILE_URL!, apiKey: e.BPM_FILE_API_KEY! });
+    const docs = new BpmDocServer({ baseUrl: v('FILE_URL')!, apiKey: v('FILE_API_KEY')! });
     const [a] = await repo.bySerialNumber(SERIAL);
     const { stream, size, segments } = await docs.open(a!.physicalName, a!.ext);
     let bytes = 0;
