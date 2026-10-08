@@ -23,7 +23,7 @@
 
 ### 2.1 測試區現況(維運)
 
-- file-api 映像 `ae69d2e9`;重建容器:`ssh host2 "wsl -u root -- sh /mnt/c/Users/user/file-recreate.sh"`。腳本內 `IMAGE_TAG` 寫死,**重建前改成目前部署的 `git rev-parse --short=8 HEAD`**,並以 `docker image inspect giganexus/file-api:<tag>` 確認存在,否則會退回舊版或找不到映像。
+- file-api 映像標籤 = develop 最新 commit 的 `git rev-parse --short=8 HEAD`(CI deploy-test 自動部署);重建容器:`ssh host2 "wsl -u root -- sh /mnt/c/Users/user/file-recreate.sh"`。腳本內 `IMAGE_TAG` 寫死,**重建前改成目前部署的 `git rev-parse --short=8 HEAD`**,並以 `docker image inspect giganexus/file-api:<tag>` 確認存在,否則會退回舊版或找不到映像。
 - NAS:`docker-backup` 帳號 cifs 掛載主機 2 `/mnt/nas-docker`(fstab、`nofail`),備份根目錄 `giga-files/test/`(標記檔 `.giga-files-backup`)。
 - BPM:主機 2 `file.env` 有 `BPM_TEST_*`(191)、`BPM_PROD_*`(190),機密 `file-secrets/bpm/{test,prod}_db_password`、`{test,prod}_file_api_key`;開發機 `.env` 同(`.env.example`)。
 - 路由:`file` 系統 12 條已發佈(檔案 6、儲存 2、BPM 4 — 以 Gateway「服務與路由」為準)。
