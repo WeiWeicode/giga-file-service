@@ -90,21 +90,21 @@ file-api(:51272)位於 Gateway 之後:一般 API 經 BFF 轉發(`X-Internal-Toke
 | 舊系統 | filebackend / SMB / PortalSolar / SDSFILES 盤點結果(數量、容量、是否已對照 UUID),唯讀 | `file.legacy.read` |
 | 儲存與備份 | WSL 用量、NAS 備份成功 / 待補 / 失敗、重試 | `file.storage.read`;按鈕 `retry` |
 
-權限節點(規劃,F3 寫入 GigaItApp `deploy/gateway-rbac.yaml`,沿用 `it.gw-*` 命名;節點名稱、排序可在「選單管理」調整):
+權限節點(已寫入 GigaItApp `deploy/gateway-rbac.yaml`:檔案清單、上傳、刪除、儲存與備份、重試 2026-10-08 上線;BPM 附件隨 F6、舊系統隨 F4;沿用 `it.gw-*` 命名;節點名稱、排序可在「選單管理」調整):
 
 | 代碼 | 名稱 | kind | parent | sort | includes |
 | --- | --- | --- | --- | --- | --- |
 | `it.gw-file.read` | 檔案管理 | menu | `it.group.gateway` | 40 | — |
 | `it.gw-file.objects` | 檔案清單 | tab | `it.gw-file.read` | 10 | `file.object.read` |
-| `it.gw-file.upload` | 上傳 | button | `it.gw-file.objects` | 10 | `file.object.upload` |
+| `it.gw-file.upload` | 上傳 / 綁定單號 | button | `it.gw-file.objects` | 10 | `file.object.upload` |
 | `it.gw-file.delete` | 刪除 | button | `it.gw-file.objects` | 20 | `file.object.delete` |
 | `it.gw-file.bpm` | BPM 附件 | tab | `it.gw-file.read` | 20 | `file.bpm.read` |
 | `it.gw-file.legacy` | 舊系統 | tab | `it.gw-file.read` | 30 | `file.legacy.read` |
 | `it.gw-file.storage` | 儲存與備份 | tab | `it.gw-file.read` | 40 | `file.storage.read` |
-| `it.gw-file.retry` | 重試備份 | button | `it.gw-file.storage` | 10 | `file.storage.manage` |
+| `it.gw-file.backup-retry` | 重試 NAS 備份 | button | `it.gw-file.storage` | 10 | `file.storage.manage` |
 
 - `file.*` 權限代碼由 file-api 的 OpenAPI `x-permission` 產生([API.md](API.md) §1.1);節點綁定規則見 Gateway FRONTEND-GUIDE §7.5。
-- **F3 前不先寫入 `gateway-rbac.yaml`**:CI 每次部署都會套用該檔,沒有頁面與 API 時先建選單會出現空頁。
+- **頁面與 API 完成前不寫入 `gateway-rbac.yaml`**:CI 每次部署都會套用該檔,先建選單會出現空頁(BPM 附件、舊系統 Tab 隨 F6、F4 才加)。
 - 畫面沿用 GigaItApp `docs/UI-GUIDE.md`;上傳元件(拖放、多檔、進度、大小 / 類型檢查)做成可複製的元件,之後放進 `@giganexus/web-kit` 給入口網與其他系統用。
 
 ## 9. 安全摘要

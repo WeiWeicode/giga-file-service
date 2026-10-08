@@ -41,7 +41,7 @@
 
 | 項目 | 內容 | 前置 |
 | --- | --- | --- |
-| F6 BPM 附件 | `/api/file/bpm/*` 三支(NaNa 唯讀 + 5144 代理)、GigaItApp「BPM 附件」Tab | ✅ NaNa 191 唯讀帳號 `file_bpm_ro`(`db/dba/02-create-bpm-readonly.sql`,開發機 `.env` 已設,實測只能讀 5 張表;近期附件 `localAttachmentPath` 無路徑 → 需目錄規則);**5144 新金鑰**:舊金鑰寫死在 NotesApp 前端,不能直接換 → 5144(`python_BPM190191檔案下載API`)改為 `API_KEY` + `API_KEYS` 並行,待使用者重新打包 FileAPI.exe、191 執行 `add_api_key.ps1`、主機 2 執行 `deploy/host2-set-bpm-secrets.sh` |
+| F6 BPM 附件 | `/api/file/bpm/*` 三支(NaNa 唯讀 + 5144 代理)、GigaItApp「BPM 附件」Tab | ✅ NaNa 191 唯讀帳號 `file_bpm_ro`(`db/dba/02-create-bpm-readonly.sql`,開發機 `.env` 已設,實測只能讀 5 張表;近期附件 `localAttachmentPath` 無路徑 → 需目錄規則);**5144 金鑰沿用既有金鑰**(使用者 2026-10-08 決定不重新打包 FileAPI.exe;舊金鑰寫死在 NotesApp 前端 9 支 API 與 BPMbackend 註解,換金鑰會讓 NotesApp 下載失敗,待 NotesApp 改走 file-api 後再換,做法:5144 支援 `API_KEY` + `API_KEYS` 並行);開發機 `.env` 的 `BPM_FILE_API_KEY` 與主機 2 `deploy/host2-set-bpm-secrets.sh` 由使用者填入 |
 | F7 相容層 | `/api/file/compat/fb|smb/*`,以舊前端對測 | 相容路由公開 + 內網白名單、CORS(PRD §11 #15、#16);歷史檔先搬完(F4) |
 | F4 對照與同步 | NAS 拉取乾跑、166 同步、`legacy_file_map` | `WebAppDb` 唯讀帳號(逐筆對照)、166 同步範圍(PRD §11 #12、#13) |
 

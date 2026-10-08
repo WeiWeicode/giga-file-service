@@ -45,14 +45,15 @@ giga-file-service/
 
 | 介面 | 位置 | 狀態 |
 | --- | --- | --- |
-| `/api/file/files*`、`/api/file/storage` | API §2 | ✅ 已實作(待測試區部署) |
-| `/api/file/storage/backup/retry`、`/inventory/*` | API §2 | 規劃(F2、F4) |
-| `/api/file/bpm/*` | API §3 | 規劃 |
+| `/api/file/files*`、`/api/file/storage` | API §2 | ✅ 測試區已部署並驗收(F1) |
+| `/api/file/storage/backup/retry` | API §2、STORAGE §2.1 | ✅ 測試區已部署並驗收(F2) |
+| `/api/file/inventory/*` | API §2 | 規劃(F4) |
+| `/api/file/bpm/*` | API §3 | 🔶 實作中(F6) |
 | `/api/file/compat/{fb,smb,portal}/*` | API §4 | 規劃 |
-| GigaItApp「Gateway 管理 › 檔案管理」 | PRD §8 | 規劃(F3) |
+| GigaItApp「Gateway 管理 › 檔案管理」 | PRD §8 | 🔶 檔案清單、儲存與備份已上線;BPM 附件(F6)、舊系統(F4)待做 |
 
 ## 3. 已知差異
 
 - 白名單為暫定(PRD §11 #6);資料範圍為第一版(PRD §11 #5)。
-- 暫存檔清除在 API 行程內每小時執行(worker 行程於 F2 NAS 備份時再拆)。
+- 暫存檔清除(每小時)與 NAS 備份補傳(每 `BACKUP_INTERVAL_MINUTES` 分鐘)都在 API 行程內執行,未拆獨立 worker;NAS 未掛載(無標記檔)時備份整輪跳過。
 - 上傳由 Gateway Nginx 直送 file-api(D4-B),其他 API 經 BFF。

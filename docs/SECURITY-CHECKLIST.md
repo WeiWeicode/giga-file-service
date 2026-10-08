@@ -24,7 +24,7 @@
 | S9 | 檔案類型 | 副檔名白名單 + 檢查檔頭(magic number);執行檔、腳本、MZ / ELF / shebang 檔頭一律拒絕 | 單元 | 🔶 白名單為暫定(PRD §11 #6) |
 | S10 | SVG / inline | `image/svg+xml` 一律以附件下載不 inline;`?inline=1` 只允許圖片 / PDF | 單元 | ✅ |
 | S11 | 回應標頭 | `X-Content-Type-Options: nosniff`(所有回應);`Content-Disposition` ASCII 後備 + `filename*=UTF-8''` | 單元 | ✅ |
-| S12 | 大小上限 | 單檔 30 MB(D3),Nginx(31m,含表頭)與 file-api 兩層檢查;直送路徑由 BFF `/_auth/verify` 驗登入、路由權限與 CSRF | 單元(30 MB 通過、+1 byte 回 413 且無殘留);Nginx 層測試區實測 | 🔶 待實測 |
+| S12 | 大小上限 | 單檔 30 MB(D3),Nginx(31m,含表頭)與 file-api 兩層檢查;直送路徑由 BFF `/_auth/verify` 驗登入、路由權限與 CSRF | 單元(30 MB 通過、+1 byte 回 413 且無殘留);2026-10-08 測試區實測 25 MB 成功、31 MB 回 413 `PAYLOAD_TOO_LARGE`、缺 CSRF 回 403 | ✅ |
 | S13 | 原子寫入 | 先寫 `tmp/` 算 SHA-256 → 全部檢查通過 → rename → 寫 DB;失敗清暫存與已搬移的檔案 | 單元(整批拒絕無殘留) | ✅ |
 | S14 | 防毒掃描 | ClamAV 擴充點保留在寫 DB 前,**暫不實作** | — | ⚠️ 範圍外 |
 
@@ -34,7 +34,7 @@
 | --- | --- | --- | --- | --- |
 | S15 | BPM 取檔金鑰 | 5144 `X-API-Key` 只放 file-api 機密設定;瀏覽器與其他系統拿不到(D10);**建議更換**(舊金鑰已在 BPM repo 註解中) | 程式審查 | ❌(PRD §11 #8) |
 | S16 | 唯讀帳號 | NaNa、166、NAS 舊備份目錄皆用唯讀帳號 / `ro` 掛載;盤點程式只有讀取介面(`ReadonlyFs`) | 單元(spy 只呼叫 readdir / stat / openRead)、真實來源前後快照相同;部署端待 F2 / F4 | 🔶 |
-| S17 | 機密存放 | `*_FILE` Docker secret(test / prod 只接受 `_FILE`);不入版控、映像、日誌 | 設定測試、程式審查 | 🔶 待部署 |
+| S17 | 機密存放 | `*_FILE` Docker secret(test / prod 只接受 `_FILE`);不入版控、映像、日誌 | 設定測試、程式審查;測試區機密檔 400、uid 1000(`host2-set-secrets.sh`) | ✅ 測試區 |
 | S18 | 舊服務漏洞 | SMB `localdownload` 路徑穿越:**依 D9 只記錄不修**,風險靠新服務上線後舊服務下線處理 | — | ⚠️ 已核准的例外 |
 
 ## 稽核與日誌
