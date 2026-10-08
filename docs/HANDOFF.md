@@ -1,6 +1,6 @@
 # giga-file-service — 目前進度與待處理事項
 
-> 最後更新:2026-10-08 15:10(§2.1.1 驗收通過;F2 NAS 備份程式完成並部署,待 NAS 掛載)。分批進行(使用者 2026-10-08 指示):每完成一批就給使用者測試,測試期間同步做下一批。時程以甘特圖 W11 為準。
+> 最後更新:2026-10-08 14:50(§2.1.1、F2 NAS 備份測試區驗收通過;下一批 F6 待帳號)。分批進行(使用者 2026-10-08 指示):每完成一批就給使用者測試,測試期間同步做下一批。時程以甘特圖 W11 為準。
 > 細節以各文件為準:[PRD](PRD.md)(決策 D1–D17、待確認 §11)、[IMPL-PLAN](IMPL-PLAN.md)(F0–F7)、[DEPLOYMENT](DEPLOYMENT.md) §2.1。
 
 ## 1. 已完成
@@ -14,7 +14,7 @@
 | 第二批(F3 第一批) | GigaItApp「Gateway 管理 › 檔案管理」:檔案清單、儲存與備份 | GigaItApp adb51a3 | typecheck、build;瀏覽器未實測 |
 | 測試回饋修正 | ① 單檔上限 50 → **30 MB**(D3);上傳 `POST /api/file/files` 改由 Gateway Nginx `auth_request` **直送 file-api**(D4-B 已實作),BFF `/_auth/verify` 對非 GET 補驗 CSRF ② 「主機磁碟」原顯示 WSL 虛擬磁碟上限 1007 GB,改以 Windows 主機磁碟為準(`HOST_DISK_PATH`,C: 200 GB / 剩 148 GB) | Gateway f360b46、file-service 6589792、GigaItApp bf5d45a | 單元:file-api 54、BFF 226 通過;13:20 已部署測試區 |
 | 測試區驗收 | 發現並修正 Gateway nginx:① `/_auth/verify` 子請求沿用預設 10m 上限,>10 MB 直送上傳回 500 → 設 `client_max_body_size 0` ② `/api/file/files` 自訂 `error_page` 後不繼承 `json-errors.conf`,413 回 HTML → 重列 413/429/5xx | Gateway c0b8fc3 | 2026-10-08 以使用者登入的瀏覽器實測:25 MB 上傳 201、31 MB 413 `PAYLOAD_TOO_LARGE`、缺 CSRF 403 `PERMISSION_DENIED`;清單 / 資訊 / 下載(UTF-8 檔名)/ 綁定 / 刪除正常;「儲存與備份」顯示 52.6 GB / 200 GB、剩 147 GB 並註明 WSL 上限 1007 GB;測試檔已刪除。甘特圖 W11-3 完成、W11-6 80% |
-| F2 NAS 備份(程式) | 備份排程(標記檔防呆、SHA-256 驗證、失敗門檻 + Gateway 通知告警)、重試 API `POST /api/file/storage/backup/retry`(`file.storage.manage`)、還原 CLI `npm run restore`、暫存檔清除連帶刪 NAS;Compose 掛 `/data/backup`;`deploy/host2-mount-nas.sh`;GigaItApp「重試 / 全部重試」(`it.gw-file.backup-retry`) | 見 commit 紀錄 | 單元 69、SQL Server 2012 整合 6 全過;GigaItApp typecheck、build;**NAS 尚未掛載**(本輪會記錄「跳過」,不寫入) |
+| F2 NAS 備份(程式) | 備份排程(標記檔防呆、SHA-256 驗證、失敗門檻 + Gateway 通知告警)、重試 API `POST /api/file/storage/backup/retry`(`file.storage.manage`)、還原 CLI `npm run restore`、暫存檔清除連帶刪 NAS;Compose 掛 `/data/backup`;`deploy/host2-mount-nas.sh`;GigaItApp「重試 / 全部重試」(`it.gw-file.backup-retry`) | 見 commit 紀錄 | 單元 69、SQL Server 2012 整合 6 全過;GigaItApp typecheck、build;**2026-10-08 測試區驗收通過**:① 上傳後 4 分鐘 `done`,NAS 檔 SHA 相符 ② 標記檔移除期間上傳維持 `pending`、日誌「本輪跳過」,恢復後下一輪自動補 ③ 刪本機檔 → `restore` 乾跑列出 → `--apply` 還原,SHA 相符、頁面下載正常;測試檔已刪除 |
 | F0 | NAS(filebackend 110、CP 101,含 SHA-256)、166(55,169 檔)唯讀盤點 | — | LEGACY-INVENTORY §6 |
 
 ## 2. 下一步(依序)
@@ -30,13 +30,12 @@
 
 ### 2.1.1 ~~新討論串接續時先做~~ ✅ 2026-10-08 全部通過(見 §1「測試區驗收」)
 
-### 2.2 F2 NAS 備份 — 需要使用者執行
+### 2.2 F2 NAS 備份 — 已完成(2026-10-08)
 
-1. **發佈路由**:GigaItApp「服務與路由 › 發佈版本」發佈 `file` 系統新草稿 `file.storage.backup.retry`(未發佈前「重試」會 404)。
-2. **NAS 服務帳號**(PRD §11 #4):向 IT 取得可寫 `//10.10.130.31/docker-folder/giga-files/` 的帳號。
-3. **主機 2 掛載**:把 `file-api/deploy/host2-mount-nas.sh` 放到主機 2,於 WSL `sudo sh host2-mount-nas.sh`(隱藏輸入帳密;缺 `mount.cifs` 先 `apt-get install -y cifs-utils`),再 `sh /mnt/c/Users/user/file-recreate.sh` 重建容器(映像標籤改成最新 commit)。
-4. **告警(選用)**:Gateway 負責人為 `file-api` 的 API Key 加 `notify.message.send`(`client:create --code file-api --perm notify.message.send`,會換發 Key → 重寫主機 2 `gw_api_key`)並建立範本 `FILE_BACKUP_FAILED`(變數 `env`、`count`、`items`、`linkUrl`);`file.env` 設 `FILE_BACKUP_ALERT_USERS=S112009`。
-5. **驗收**(Claude 可接手):上傳後 5 分鐘內 `backup_status = done`、NAS 有 `{yyyy}/{mm}/{uuid}`;卸載 NAS 期間上傳正常、恢復後自動補;刪本機檔後 `restore --apply` 還原且 SHA 相符。
+- 路由 `file.storage.backup.retry` 已發佈;NAS 以 `docker-backup` 帳號 cifs 掛載於主機 2 `/mnt/nas-docker`(fstab、`nofail`),備份根目錄 `giga-files/test/`。
+- `C:\Users\user\file-recreate.sh` 的映像標籤已改為 `997dd4cf`;之後 file-api 有新版本要重建時同步改標籤,否則會退回舊版。
+- **尚未設定(選用)**:備份失敗告警 Email — Gateway 負責人為 `file-api` 的 API Key 加 `notify.message.send`(會換發 Key → 重寫主機 2 `gw_api_key`)、建立範本 `FILE_BACKUP_FAILED`(變數 `env`、`count`、`items`、`linkUrl`),`file.env` 設 `FILE_BACKUP_ALERT_USERS`。未設定時失敗只記日誌與畫面「備份失敗」。
+- 軟刪除後的實體清除(含 NAS)待保留期限決定(PRD §11 #4)。
 
 ### 2.3 Claude 下一批
 
