@@ -162,5 +162,6 @@ file-api(:51272)位於 Gateway 之後:一般 API 經 BFF 轉發(`X-Internal-Toke
 | [IMPL-PLAN.md](IMPL-PLAN.md) | 工作項目、前置工作、測試策略 | §12 |
 | [DEPLOYMENT.md](DEPLOYMENT.md) | 部署區、CI/CD、掛載、機密、Gateway 端變更 | (新增;整理自 §5、`AGENT.md` §6) |
 | [PROJECT-MAP.md](PROJECT-MAP.md) | 目錄與職責 | (新增) |
+| [HANDOFF.md](HANDOFF.md) | 目前進度與待處理事項(分批進行) | (新增) |
 | [Gherkin/](Gherkin/README.md) | 行為規格與測試對照 | (新增) |
 | [DevelopmentProcess/](DevelopmentProcess/) | 修正紀錄 | (新增) |

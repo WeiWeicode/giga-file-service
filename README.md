@@ -22,3 +22,4 @@ GigaNexus 共用的附件(檔案)服務:上傳、下載、清單、軟刪除,檔
 | [docs/PRD.md](docs/PRD.md) | 總綱、決策、畫面、待確認事項 |
 | [docs/IMPL-PLAN.md](docs/IMPL-PLAN.md) | 工作項目 F0–F7 |
 | [docs/PROJECT-MAP.md](docs/PROJECT-MAP.md) | 專案地圖 |
+| [docs/HANDOFF.md](docs/HANDOFF.md) | 目前進度與待處理事項 |
