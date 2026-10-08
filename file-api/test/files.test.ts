@@ -69,6 +69,9 @@ describe('OpenAPI(BACKEND-GUIDE.md §6.1)', () => {
       assert.ok(String(op.description ?? '').length >= 10, `${id} 缺 description`);
       assert.match(String(op['x-gherkin'] ?? ''), /場景:/, `${id} 缺 x-gherkin`);
       assert.ok(declared.has(String(op['x-permission'])), `${id} 的 x-permission 未宣告:${op['x-permission']}`);
+      // Gateway 匯入規則:x-timeout-ms 需介於 100 ~ 60000(2026-10-08 測試區自動註冊被拒後補上)
+      if (op['x-timeout-ms'] !== undefined)
+        assert.ok(Number(op['x-timeout-ms']) >= 100 && Number(op['x-timeout-ms']) <= 60_000, `${id} 的 x-timeout-ms 超出範圍`);
     }
     assert.ok(!JSON.stringify(doc).includes('storageKey'), '不可對外暴露 storage_key');
   });

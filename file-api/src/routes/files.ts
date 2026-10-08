@@ -71,7 +71,7 @@ export function fileRoutes(service: FileService, actorOf: (req: FastifyRequest) 
           consumes: ['multipart/form-data'],
           'x-permission': 'file.object.upload',
           'x-audit-level': 'meta',
-          'x-timeout-ms': 120_000,
+          'x-timeout-ms': 60_000,
           'x-gherkin': [
             '場景: 上傳單一檔案後取得 UUID,狀態為暫存',
             '  假如 使用者擁有 file.object.upload',
@@ -234,7 +234,7 @@ export function fileRoutes(service: FileService, actorOf: (req: FastifyRequest) 
             '串流下載附件內容;Content-Disposition 含 ASCII 後備檔名與 filename*=UTF-8 中文檔名。?inline=1 只對圖片與 PDF 生效(SVG 一律以附件下載)。每次下載寫入操作紀錄。',
           tags: ['附件'],
           'x-permission': 'file.object.read',
-          'x-timeout-ms': 120_000,
+          'x-timeout-ms': 60_000,
           'x-gherkin': [
             '場景: 下載時帶 UTF-8 檔名',
             '  假如 已上傳 "電子發票設定.docx"',
