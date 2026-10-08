@@ -1,0 +1,58 @@
+# file-api 部署到測試區(主機 2,與 Gateway 同一台;docs/DEPLOYMENT.md)。CI deploy-test 於 develop 執行:
+#   docker compose --env-file <主機受保護目錄>/file.env -f file-api/deploy/docker-compose.yml build --pull file-api
+#   docker compose --env-file <主機受保護目錄>/file.env -f file-api/deploy/docker-compose.yml up -d --wait
+#
+# 網路:file-api 加入 Gateway 的 Docker 網路(GW_NETWORK),別名 file-api:
+#   BFF → http://file-api:51272(X-Internal-Token;路由由啟動時自動註冊的草稿發佈後生效)
+# 檔案:主機 FILE_HOST_ROOT(預設 /srv/giga-files/test,WSL ext4,不放 /mnt/c;STORAGE.md §1)bind mount 到 /data/files,擁有者 uid 1000
+# 機密(FILE_SECRETS_DIR,uid 1000 可讀;file-api/deploy/host2-set-secrets.sh 產生):
+#   file_db_password(file_app)、gw_api_key(Gateway CLI client:create --code file-api)、monitor_api_key(giga-observe 服務 file-api)
+# migration 由開發者電腦 npm run db:migrate 套用(file_migrate 不放測試區主機)
+name: giganexus-file-${GW_ENV:?GW_ENV 必須設定(test / prod)}
+
+services:
+  file-api:
+    image: giganexus/file-api:${IMAGE_TAG:-dev}
+    build:
+      context: ..
+      secrets: [npm_token]
+    restart: unless-stopped
+    environment:
+      GW_ENV: ${GW_ENV}
+      SERVICE_CODE: file-api
+      GW_BASE_URL: ${GW_BASE_URL:?GW_BASE_URL 必須設定}
+      # 同一 Docker 網路直連 bff-1 取 JWKS(不經 Nginx 的內網白名單;同 itapp-api、endpoint-server)
+      GW_JWKS_URL: ${GW_JWKS_URL:-http://bff-1:3000/.well-known/jwks.json}
+      GW_API_KEY_FILE: /run/secrets/gw_api_key
+      SERVICE_ADVERTISE_URL: http://file-api:51272
+      FILE_ROOT: /data/files
+      FILE_DB_HOST: ${FILE_DB_HOST:?FILE_DB_HOST 必須設定}
+      FILE_DB_PORT: ${FILE_DB_PORT:-1433}
+      FILE_DB_NAME: ${FILE_DB_NAME:?FILE_DB_NAME 必須設定}
+      FILE_DB_USER: ${FILE_DB_USER:?FILE_DB_USER 必須設定}
+      FILE_DB_PASSWORD_FILE: /run/secrets/file_db_password
+      MONITOR_URL: ${MONITOR_URL:-http://observe-api:51202}
+      MONITOR_API_KEY_FILE: /run/secrets/monitor_api_key
+      RELEASE_SHA: ${RELEASE_SHA:-dev}
+    secrets: [gw_api_key, file_db_password, monitor_api_key]
+    volumes:
+      - ${FILE_HOST_ROOT:-/srv/giga-files/test}:/data/files
+    networks:
+      gateway:
+        aliases: [file-api]
+
+secrets:
+  gw_api_key:
+    file: ${FILE_SECRETS_DIR:?FILE_SECRETS_DIR 必須設定}/gw_api_key
+  file_db_password:
+    file: ${FILE_SECRETS_DIR}/file_db_password
+  monitor_api_key:
+    file: ${FILE_SECRETS_DIR}/monitor_api_key
+  # 建置用:GitLab npm Registry 讀取 Token(環境變數 GITLAB_NPM_TOKEN;CI 由主機機密檔讀入)
+  npm_token:
+    environment: GITLAB_NPM_TOKEN
+
+networks:
+  gateway:
+    external: true
+    name: ${GW_NETWORK:-giganexus-gw_default}

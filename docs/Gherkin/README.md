@@ -5,16 +5,17 @@
 
 ## 檔案一覽(預計)
 
-尚未撰寫;各工作項目開始時建立,並在本表標示狀態。
+已撰寫的標 ✅;其餘在各工作項目開始時建立。
 
 | 目錄 / 檔案 | 內容 | 規格 | 工作項目 |
 | --- | --- | --- | --- |
-| `files/upload-download.feature` | 上傳兩段式、綁定、下載(中文檔名)、軟刪除、暫存清除 | API §2 | F1 |
-| `files/file-safety.feature` | 只用 UUID、路徑安全、檔案類型、大小上限、SVG 不 inline | SECURITY-CHECKLIST S7–S13 | F1 |
+| ✅ `files/upload-download.feature` | 上傳兩段式、綁定、下載(中文檔名)、軟刪除、暫存清除、儲存統計 | API §2 | F1 |
+| ✅ `files/file-safety.feature` | Token、只用 UUID、路徑安全、檔案類型、大小上限、SVG 不 inline、資料範圍 | SECURITY-CHECKLIST S1、S4、S7–S13 | F1 |
 | `storage/nas-backup.feature` | 排程補傳、SHA-256 驗證、NAS 斷線恢復、失敗告警、還原 | STORAGE §2 | F2 |
 | `bpm/bpm-attachment.feature` | 單號完全比對、目錄段數嘗試與快取、環境由設定決定 | API §3 | F6 |
 | `compat/filebackend.feature` | `fb` 7 支舊格式、舊 id 與 UUID、`/sql-files` 無 limit | API §4.1、§4.4 | F7 |
 | `compat/smbbackend.feature` | `smb` 6 支舊格式、兩種 `path` 查找、預設值 | API §4.2、§4.4 | F7 |
+| ✅ `legacy/inventory.feature` | 舊來源唯讀盤點:計數、UUID / 原檔名、未查詢、絕不修改來源 | LEGACY-INVENTORY §6 | F0 |
 | `legacy/sync.feature` | NAS 拉取乾跑、166 同步狀態線、同名覆蓋保留舊版、來源消失只標記 | MIGRATION §2、§3 | F4 |
 
 ## 標籤慣例

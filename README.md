@@ -3,7 +3,7 @@
 GigaNexus 共用的附件(檔案)服務:上傳、下載、清單、軟刪除,檔案存放於主機 WSL,並備份到 NAS。
 畫面在 GigaItApp「Gateway 管理 › 檔案管理」,經 Gateway BFF `/api/file/*` 呼叫。
 
-> **狀態:規劃中,尚無程式碼**。總綱見 [docs/PRD.md](docs/PRD.md)(文件索引在 §12);時程以 NexusPlan 甘特圖(W11)為準。
+> **狀態:F1 file-api 主體完成(待測試區部署)**。程式在 [`file-api/`](file-api/);總綱見 [docs/PRD.md](docs/PRD.md)(文件索引在 §12);時程以 NexusPlan 甘特圖(W11)為準。
 
 | 項目 | 內容(規劃) |
 | --- | --- |

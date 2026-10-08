@@ -1,6 +1,6 @@
 # GigaNexus 附件服務 — 部署與設定
 
-> 對應 PRD 版本:**v0.8**(2026-10-08)。**尚未部署、尚未建立 GitLab remote**;本文件記錄規劃,F1 建立骨架與 CI 後改為實際步驟。
+> 對應 PRD 版本:**v0.8**(2026-10-08)。F1 已有 Dockerfile、Compose 與 CI(`file-api/Dockerfile`、`file-api/deploy/`、`.gitlab-ci.yml`);**測試區尚未部署**,步驟見 §2.1。
 > 通用流程以 Gateway [DEPLOYMENT.md](../../giga-api-gateway-bff/docs/DEPLOYMENT.md)(CI/CD、WSL2 Docker §6、機密)與 [BACKEND-GUIDE.md](../../giga-api-gateway-bff/docs/BACKEND-GUIDE.md) §3 為準。
 
 ---
@@ -32,7 +32,14 @@
 | 建置 | 主機 2 建置一律 `--pull`(`node:22-alpine` 標籤會被覆寫) |
 | 套件 | `@giganexus/backend-sdk` 來自 GitLab npm Registry(Deploy Token,比照其他 repo) |
 
-前置:建立 GitLab 專案與 remote、Runner 指派、Registry 路徑([IMPL-PLAN.md](IMPL-PLAN.md) §3)。
+### 2.1 測試區第一次部署
+
+1. **主機 2(本人)**:把 `file-api/deploy/host2-set-secrets.sh` 帶到主機 2,在 WSL 執行 `sudo sh host2-set-secrets.sh`:建立 `/srv/giga-files/test`(uid 1000)、`/srv/giganexus/file-secrets/`(`file_app` 密碼隱藏輸入、Gateway API Key `client:create --code file-api`、giga-observe 監控 Key)、`/srv/giganexus/deploy/file.env`。
+2. **migration**:開發機 `cd file-api && npm run db:migrate`(以 `file_migrate`;`giganexus_gw_test` 已於 2026-10-08 套用)。
+3. **推 `develop`**:CI `check:file-api` → `deploy-test`(建置映像、`up -d --wait`、`/readyz`、無 Token 回 401)。
+4. **發佈路由**:file-api 啟動後自動註冊為 Gateway **草稿**;在 GigaItApp「服務與路由」審查 `file` 系統的 7 條路由後發佈。
+5. **畫面權限**:GigaItApp `deploy/gateway-rbac.yaml` 的 `it.gw-file.*`(PRD §8)隨 GigaItApp develop 部署套用。
+6. 上傳經 BFF 時單檔上限為 **10 MB**(BFF 全域限制);50 MB 直送待 §4 Nginx 變更。
 
 ## 3. 主機目錄與掛載
 

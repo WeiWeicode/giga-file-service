@@ -4,13 +4,14 @@
 *.env
 !.env.example
 !.env.*.example
+!*.env.example
 secrets/
 
-# 檔案實體與暫存(實體檔案只放主機 WSL 與 NAS,不進 repo)
-files/
-data/
-tmp/
-logs/
+# 檔案實體與暫存(實體檔案只放主機 WSL 與 NAS,不進 repo);只忽略 file-api 下的執行期目錄,不影響 docs/Gherkin/files/
+/file-api/files/
+/file-api/data/
+/file-api/tmp/
+/file-api/logs/
 
 # Node
 node_modules/

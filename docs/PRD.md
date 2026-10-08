@@ -132,7 +132,7 @@ file-api(:51272)位於 Gateway 之後:一般 API 經 BFF 轉發(`X-Internal-Toke
 
 1. ~~單檔大小上限(D3)、上傳走法(D4)~~ 已定案(50 MB、Nginx 直送)。
 2. ~~資料庫名稱與主機(D7)~~ 已定案(比照 Gateway);建庫與帳密由使用者執行。
-3. 是否可唯讀存取 `\\10.10.130.166\PortalSolar`、`\\10.10.130.190\SDSFILES` 與相關 DB 進行 F0 盤點。
+3. 是否可唯讀存取 `\\10.10.130.166\PortalSolar`、`\\10.10.130.190\SDSFILES` 與相關 DB 進行 F0 盤點。**2026-10-08**:166 與 NAS 已可由開發機唯讀存取並完成盤點([LEGACY-INVENTORY.md](LEGACY-INVENTORY.md) §6);190 `SDSFILES` 與 `WebAppDb` 唯讀帳號仍待提供(逐筆對照需要)。
 4. NAS 子目錄與服務帳號;保留期限(軟刪除後多久實體清除)。
 5. 第一個接入的業務系統是哪個(決定 `source_system` 與資料層級規則的第一版)。
 6. 允許的檔案類型清單。
@@ -143,7 +143,7 @@ file-api(:51272)位於 Gateway 之後:一般 API 經 BFF 轉發(`X-Internal-Toke
 11. 「NAS 備份拉取」(D13)的 NAS 唯讀帳號,以及舊主機 robocopy 備份的排程頻率(決定切換前差異有多大)。
 12. 166 的**唯讀**服務帳號(同步只讀不寫);要同步的目錄範圍(依 F0 結果,例如 `ESLearning` 影片、`PersonalPic` 員工照片、`html`、`EIP` 是否納入)。
 13. 同名被覆蓋時保留舊版(建議)還是只留最新;每日增量的時段;正式切換日與 166 上傳凍結的方式。
-14. 舊服務使用者**已確認**([LEGACY-INVENTORY.md](LEGACY-INVENTORY.md) §4):兩個舊服務的資料列全部是 BPM 表單前端。待 F0:`files/CRM`、`ERP`、`MES` 是否為孤兒檔;SMB 83 筆在 NAS `CP` 是否都有實體檔、75 筆原檔名檔案的實際位置。
+14. 舊服務使用者**已確認**([LEGACY-INVENTORY.md](LEGACY-INVENTORY.md) §4):兩個舊服務的資料列全部是 BPM 表單前端。**2026-10-08 NAS 盤點**(§6.1):`CRM`、`MES` 為空目錄、沒有 `ERP`;`CP` 有 101 個檔案(資料表 83 筆)、filebackend 110 個(資料表 151 筆),逐筆對照待 `WebAppDb` 唯讀帳號。
 15. 相容路由 `auth_mode = public` 與 Nginx 內網白名單([API.md](API.md) §4.4 規則 4)是否接受。
 16. Gateway 的 CORS 白名單可否加入 BPM 前端來源並暴露 `Content-Disposition`(規則 9);相容層 `/sql-files` 無 `limit` 時回全部(規則 8)是否接受。
 

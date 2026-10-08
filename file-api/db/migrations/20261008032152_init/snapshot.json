@@ -1,0 +1,742 @@
+{
+  "version": "2",
+  "dialect": "mssql",
+  "id": "eaf97c35-96d3-468a-a357-d590d1648a2f",
+  "prevIds": [
+    "00000000-0000-0000-0000-000000000000"
+  ],
+  "ddl": [
+    {
+      "name": "file_access_log",
+      "entityType": "tables",
+      "schema": "file_svc"
+    },
+    {
+      "name": "file_object",
+      "entityType": "tables",
+      "schema": "file_svc"
+    },
+    {
+      "name": "legacy_file_map",
+      "entityType": "tables",
+      "schema": "file_svc"
+    },
+    {
+      "type": "bigint",
+      "notNull": true,
+      "generated": null,
+      "identity": {
+        "seed": 1,
+        "increment": 1
+      },
+      "name": "id",
+      "schema": "file_svc",
+      "entityType": "columns",
+      "table": "file_access_log"
+    },
+    {
+      "type": "uniqueidentifier",
+      "notNull": false,
+      "generated": null,
+      "identity": null,
+      "name": "file_uuid",
+      "schema": "file_svc",
+      "entityType": "columns",
+      "table": "file_access_log"
+    },
+    {
+      "type": "varchar(20)",
+      "notNull": true,
+      "generated": null,
+      "identity": null,
+      "name": "action",
+      "schema": "file_svc",
+      "entityType": "columns",
+      "table": "file_access_log"
+    },
+    {
+      "type": "nvarchar(64)",
+      "notNull": true,
+      "generated": null,
+      "identity": null,
+      "name": "user_id",
+      "schema": "file_svc",
+      "entityType": "columns",
+      "table": "file_access_log"
+    },
+    {
+      "type": "nvarchar(50)",
+      "notNull": false,
+      "generated": null,
+      "identity": null,
+      "name": "ip",
+      "schema": "file_svc",
+      "entityType": "columns",
+      "table": "file_access_log"
+    },
+    {
+      "type": "nvarchar(100)",
+      "notNull": false,
+      "generated": null,
+      "identity": null,
+      "name": "request_id",
+      "schema": "file_svc",
+      "entityType": "columns",
+      "table": "file_access_log"
+    },
+    {
+      "type": "nvarchar(500)",
+      "notNull": false,
+      "generated": null,
+      "identity": null,
+      "name": "detail",
+      "schema": "file_svc",
+      "entityType": "columns",
+      "table": "file_access_log"
+    },
+    {
+      "type": "datetime2(3)",
+      "notNull": true,
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "schema": "file_svc",
+      "entityType": "columns",
+      "table": "file_access_log"
+    },
+    {
+      "type": "bigint",
+      "notNull": true,
+      "generated": null,
+      "identity": {
+        "seed": 1,
+        "increment": 1
+      },
+      "name": "id",
+      "schema": "file_svc",
+      "entityType": "columns",
+      "table": "file_object"
+    },
+    {
+      "type": "uniqueidentifier",
+      "notNull": true,
+      "generated": null,
+      "identity": null,
+      "name": "file_uuid",
+      "schema": "file_svc",
+      "entityType": "columns",
+      "table": "file_object"
+    },
+    {
+      "type": "nvarchar(255)",
+      "notNull": true,
+      "generated": null,
+      "identity": null,
+      "name": "original_name",
+      "schema": "file_svc",
+      "entityType": "columns",
+      "table": "file_object"
+    },
+    {
+      "type": "nvarchar(20)",
+      "notNull": false,
+      "generated": null,
+      "identity": null,
+      "name": "ext",
+      "schema": "file_svc",
+      "entityType": "columns",
+      "table": "file_object"
+    },
+    {
+      "type": "nvarchar(100)",
+      "notNull": false,
+      "generated": null,
+      "identity": null,
+      "name": "mime",
+      "schema": "file_svc",
+      "entityType": "columns",
+      "table": "file_object"
+    },
+    {
+      "type": "bigint",
+      "notNull": true,
+      "generated": null,
+      "identity": null,
+      "name": "size_bytes",
+      "schema": "file_svc",
+      "entityType": "columns",
+      "table": "file_object"
+    },
+    {
+      "type": "char(64)",
+      "notNull": true,
+      "generated": null,
+      "identity": null,
+      "name": "sha256",
+      "schema": "file_svc",
+      "entityType": "columns",
+      "table": "file_object"
+    },
+    {
+      "type": "nvarchar(200)",
+      "notNull": true,
+      "generated": null,
+      "identity": null,
+      "name": "storage_key",
+      "schema": "file_svc",
+      "entityType": "columns",
+      "table": "file_object"
+    },
+    {
+      "type": "nvarchar(50)",
+      "notNull": true,
+      "generated": null,
+      "identity": null,
+      "name": "source_system",
+      "schema": "file_svc",
+      "entityType": "columns",
+      "table": "file_object"
+    },
+    {
+      "type": "nvarchar(200)",
+      "notNull": false,
+      "generated": null,
+      "identity": null,
+      "name": "source_app",
+      "schema": "file_svc",
+      "entityType": "columns",
+      "table": "file_object"
+    },
+    {
+      "type": "nvarchar(50)",
+      "notNull": false,
+      "generated": null,
+      "identity": null,
+      "name": "ref_type",
+      "schema": "file_svc",
+      "entityType": "columns",
+      "table": "file_object"
+    },
+    {
+      "type": "nvarchar(100)",
+      "notNull": false,
+      "generated": null,
+      "identity": null,
+      "name": "ref_no",
+      "schema": "file_svc",
+      "entityType": "columns",
+      "table": "file_object"
+    },
+    {
+      "type": "nvarchar(50)",
+      "notNull": false,
+      "generated": null,
+      "identity": null,
+      "name": "company_id",
+      "schema": "file_svc",
+      "entityType": "columns",
+      "table": "file_object"
+    },
+    {
+      "type": "nvarchar(64)",
+      "notNull": true,
+      "generated": null,
+      "identity": null,
+      "name": "uploaded_by",
+      "schema": "file_svc",
+      "entityType": "columns",
+      "table": "file_object"
+    },
+    {
+      "type": "nvarchar(50)",
+      "notNull": false,
+      "generated": null,
+      "identity": null,
+      "name": "uploaded_ip",
+      "schema": "file_svc",
+      "entityType": "columns",
+      "table": "file_object"
+    },
+    {
+      "type": "datetime2(3)",
+      "notNull": true,
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "schema": "file_svc",
+      "entityType": "columns",
+      "table": "file_object"
+    },
+    {
+      "type": "datetime2(3)",
+      "notNull": false,
+      "generated": null,
+      "identity": null,
+      "name": "bound_at",
+      "schema": "file_svc",
+      "entityType": "columns",
+      "table": "file_object"
+    },
+    {
+      "type": "datetime2(3)",
+      "notNull": false,
+      "generated": null,
+      "identity": null,
+      "name": "deleted_at",
+      "schema": "file_svc",
+      "entityType": "columns",
+      "table": "file_object"
+    },
+    {
+      "type": "nvarchar(64)",
+      "notNull": false,
+      "generated": null,
+      "identity": null,
+      "name": "deleted_by",
+      "schema": "file_svc",
+      "entityType": "columns",
+      "table": "file_object"
+    },
+    {
+      "type": "varchar(10)",
+      "notNull": true,
+      "generated": null,
+      "identity": null,
+      "name": "backup_status",
+      "schema": "file_svc",
+      "entityType": "columns",
+      "table": "file_object"
+    },
+    {
+      "type": "datetime2(3)",
+      "notNull": false,
+      "generated": null,
+      "identity": null,
+      "name": "backup_at",
+      "schema": "file_svc",
+      "entityType": "columns",
+      "table": "file_object"
+    },
+    {
+      "type": "int",
+      "notNull": true,
+      "generated": null,
+      "identity": null,
+      "name": "backup_attempts",
+      "schema": "file_svc",
+      "entityType": "columns",
+      "table": "file_object"
+    },
+    {
+      "type": "bigint",
+      "notNull": true,
+      "generated": null,
+      "identity": {
+        "seed": 1,
+        "increment": 1
+      },
+      "name": "id",
+      "schema": "file_svc",
+      "entityType": "columns",
+      "table": "legacy_file_map"
+    },
+    {
+      "type": "uniqueidentifier",
+      "notNull": true,
+      "generated": null,
+      "identity": null,
+      "name": "file_uuid",
+      "schema": "file_svc",
+      "entityType": "columns",
+      "table": "legacy_file_map"
+    },
+    {
+      "type": "varchar(30)",
+      "notNull": true,
+      "generated": null,
+      "identity": null,
+      "name": "legacy_source",
+      "schema": "file_svc",
+      "entityType": "columns",
+      "table": "legacy_file_map"
+    },
+    {
+      "type": "nvarchar(300)",
+      "notNull": false,
+      "generated": null,
+      "identity": null,
+      "name": "legacy_dir",
+      "schema": "file_svc",
+      "entityType": "columns",
+      "table": "legacy_file_map"
+    },
+    {
+      "type": "nvarchar(255)",
+      "notNull": true,
+      "generated": null,
+      "identity": null,
+      "name": "legacy_name",
+      "schema": "file_svc",
+      "entityType": "columns",
+      "table": "legacy_file_map"
+    },
+    {
+      "type": "nvarchar(100)",
+      "notNull": false,
+      "generated": null,
+      "identity": null,
+      "name": "legacy_db",
+      "schema": "file_svc",
+      "entityType": "columns",
+      "table": "legacy_file_map"
+    },
+    {
+      "type": "nvarchar(100)",
+      "notNull": false,
+      "generated": null,
+      "identity": null,
+      "name": "legacy_table",
+      "schema": "file_svc",
+      "entityType": "columns",
+      "table": "legacy_file_map"
+    },
+    {
+      "type": "nvarchar(200)",
+      "notNull": false,
+      "generated": null,
+      "identity": null,
+      "name": "legacy_key",
+      "schema": "file_svc",
+      "entityType": "columns",
+      "table": "legacy_file_map"
+    },
+    {
+      "type": "bigint",
+      "notNull": true,
+      "generated": null,
+      "identity": null,
+      "name": "size_bytes",
+      "schema": "file_svc",
+      "entityType": "columns",
+      "table": "legacy_file_map"
+    },
+    {
+      "type": "datetime2(3)",
+      "notNull": true,
+      "generated": null,
+      "identity": null,
+      "name": "mtime_utc",
+      "schema": "file_svc",
+      "entityType": "columns",
+      "table": "legacy_file_map"
+    },
+    {
+      "type": "char(64)",
+      "notNull": false,
+      "generated": null,
+      "identity": null,
+      "name": "sha256",
+      "schema": "file_svc",
+      "entityType": "columns",
+      "table": "legacy_file_map"
+    },
+    {
+      "type": "bit",
+      "notNull": true,
+      "generated": null,
+      "identity": null,
+      "name": "is_current",
+      "schema": "file_svc",
+      "entityType": "columns",
+      "table": "legacy_file_map"
+    },
+    {
+      "type": "nvarchar(500)",
+      "notNull": false,
+      "generated": null,
+      "identity": null,
+      "name": "nas_path",
+      "schema": "file_svc",
+      "entityType": "columns",
+      "table": "legacy_file_map"
+    },
+    {
+      "type": "datetime2(3)",
+      "notNull": false,
+      "generated": null,
+      "identity": null,
+      "name": "nas_copied_at",
+      "schema": "file_svc",
+      "entityType": "columns",
+      "table": "legacy_file_map"
+    },
+    {
+      "type": "datetime2(3)",
+      "notNull": false,
+      "generated": null,
+      "identity": null,
+      "name": "wsl_copied_at",
+      "schema": "file_svc",
+      "entityType": "columns",
+      "table": "legacy_file_map"
+    },
+    {
+      "type": "datetime2(3)",
+      "notNull": true,
+      "generated": null,
+      "identity": null,
+      "name": "first_seen_at",
+      "schema": "file_svc",
+      "entityType": "columns",
+      "table": "legacy_file_map"
+    },
+    {
+      "type": "datetime2(3)",
+      "notNull": true,
+      "generated": null,
+      "identity": null,
+      "name": "last_seen_at",
+      "schema": "file_svc",
+      "entityType": "columns",
+      "table": "legacy_file_map"
+    },
+    {
+      "type": "datetime2(3)",
+      "notNull": false,
+      "generated": null,
+      "identity": null,
+      "name": "source_missing_at",
+      "schema": "file_svc",
+      "entityType": "columns",
+      "table": "legacy_file_map"
+    },
+    {
+      "type": "varchar(20)",
+      "notNull": true,
+      "generated": null,
+      "identity": null,
+      "name": "sync_state",
+      "schema": "file_svc",
+      "entityType": "columns",
+      "table": "legacy_file_map"
+    },
+    {
+      "columns": [
+        {
+          "value": "file_uuid",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "name": "ix_file_access_log_uuid",
+      "entityType": "indexes",
+      "table": "file_access_log",
+      "schema": "file_svc"
+    },
+    {
+      "columns": [
+        {
+          "value": "created_at",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "name": "ix_file_access_log_created_at",
+      "entityType": "indexes",
+      "table": "file_access_log",
+      "schema": "file_svc"
+    },
+    {
+      "columns": [
+        {
+          "value": "file_uuid",
+          "isExpression": false
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "name": "uq_file_object_uuid",
+      "entityType": "indexes",
+      "table": "file_object",
+      "schema": "file_svc"
+    },
+    {
+      "columns": [
+        {
+          "value": "ref_type",
+          "isExpression": false
+        },
+        {
+          "value": "ref_no",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "name": "ix_file_object_ref",
+      "entityType": "indexes",
+      "table": "file_object",
+      "schema": "file_svc"
+    },
+    {
+      "columns": [
+        {
+          "value": "created_at",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "name": "ix_file_object_created_at",
+      "entityType": "indexes",
+      "table": "file_object",
+      "schema": "file_svc"
+    },
+    {
+      "columns": [
+        {
+          "value": "backup_status",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "name": "ix_file_object_backup",
+      "entityType": "indexes",
+      "table": "file_object",
+      "schema": "file_svc"
+    },
+    {
+      "columns": [
+        {
+          "value": "file_uuid",
+          "isExpression": false
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "name": "uq_legacy_file_map_uuid",
+      "entityType": "indexes",
+      "table": "legacy_file_map",
+      "schema": "file_svc"
+    },
+    {
+      "columns": [
+        {
+          "value": "legacy_source",
+          "isExpression": false
+        },
+        {
+          "value": "legacy_dir",
+          "isExpression": false
+        },
+        {
+          "value": "legacy_name",
+          "isExpression": false
+        }
+      ],
+      "isUnique": true,
+      "where": "[is_current] = 1",
+      "name": "uq_legacy_file_map_current",
+      "entityType": "indexes",
+      "table": "legacy_file_map",
+      "schema": "file_svc"
+    },
+    {
+      "columns": [
+        {
+          "value": "legacy_source",
+          "isExpression": false
+        },
+        {
+          "value": "legacy_key",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "name": "ix_legacy_file_map_key",
+      "entityType": "indexes",
+      "table": "legacy_file_map",
+      "schema": "file_svc"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "id"
+      ],
+      "name": "file_access_log_pkey",
+      "table": "file_access_log",
+      "schema": "file_svc",
+      "entityType": "pks"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "id"
+      ],
+      "name": "file_object_pkey",
+      "table": "file_object",
+      "schema": "file_svc",
+      "entityType": "pks"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "id"
+      ],
+      "name": "legacy_file_map_pkey",
+      "table": "legacy_file_map",
+      "schema": "file_svc",
+      "entityType": "pks"
+    },
+    {
+      "column": "created_at",
+      "nameExplicit": false,
+      "default": "(sysutcdatetime())",
+      "name": "file_access_log_created_at_default",
+      "entityType": "defaults",
+      "schema": "file_svc",
+      "table": "file_access_log"
+    },
+    {
+      "column": "created_at",
+      "nameExplicit": false,
+      "default": "(sysutcdatetime())",
+      "name": "file_object_created_at_default",
+      "entityType": "defaults",
+      "schema": "file_svc",
+      "table": "file_object"
+    },
+    {
+      "column": "backup_status",
+      "nameExplicit": false,
+      "default": "('pending')",
+      "name": "file_object_backup_status_default",
+      "entityType": "defaults",
+      "schema": "file_svc",
+      "table": "file_object"
+    },
+    {
+      "column": "backup_attempts",
+      "nameExplicit": false,
+      "default": "((0))",
+      "name": "file_object_backup_attempts_default",
+      "entityType": "defaults",
+      "schema": "file_svc",
+      "table": "file_object"
+    },
+    {
+      "column": "is_current",
+      "nameExplicit": false,
+      "default": "((1))",
+      "name": "legacy_file_map_is_current_default",
+      "entityType": "defaults",
+      "schema": "file_svc",
+      "table": "legacy_file_map"
+    }
+  ],
+  "renames": []
+}

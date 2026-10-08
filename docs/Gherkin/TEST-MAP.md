@@ -1,6 +1,52 @@
 # Gherkin 場景 ↔ 自動化測試對照表
 
-> 比照 Gateway:Gherkin 維持驗收規格文件,自動化以 Vitest(`test/unit`、`test/integration`、測試區 `test/e2e`)執行,本表記錄每個場景由哪個測試涵蓋。
+> 比照 Gateway:Gherkin 維持驗收規格文件,自動化以 Node 內建測試(`node:test` + tsx)執行,本表記錄每個場景由哪個測試涵蓋。
 > 「未自動化」註明原因;新增場景或測試時同步更新本表(IMPL-PLAN §6 完成定義)。
+> 縮寫(皆在 `file-api/`):`F` = `test/files.test.ts`;`U` = `test/units.test.ts`;`I` = `test/inventory.test.ts`;`INT` = `test/int/files.int.test.ts`(SQL Server 2012,`npm run test:int`);`L` = `test/legacy/shares.legacy.test.ts`(真實 NAS / 166 唯讀,`npm run test:legacy`)。場景名稱與測試名稱相同。
 
-尚無場景與測試(F1 起建立)。
+## files/upload-download.feature(F1)
+
+| 場景 | 測試 |
+| --- | --- |
+| 上傳單一檔案後取得 UUID,狀態為暫存 | F;INT(完整流程) |
+| 一次上傳多個檔案 | F |
+| 上傳時一併指定單號 | F |
+| 單據存檔時綁定暫存檔 | F;INT(OUTPUT 回報筆數) |
+| 不可綁定他人上傳的暫存檔 | F |
+| 下載時帶 UTF-8 檔名 | F;U(Content-Disposition) |
+| 圖片與 PDF 可以 inline 預覽 | F |
+| 其他類型即使要求 inline 仍以附件下載 | F |
+| 查詢清單依單號篩選並分頁 | F;INT(OFFSET FETCH) |
+| 軟刪除後清單與下載都看不到,但實體檔保留 | F;INT |
+| 已刪除的檔案再刪除回 404 | F;INT |
+| 超過 24 小時未綁定的暫存檔由排程清除 | F;INT(expiredTemps) |
+| 儲存與備份統計 | F;INT |
+
+## files/file-safety.feature(F1)
+
+| 場景 | 測試 |
+| --- | --- |
+| 沒有內部 Token 一律拒絕 | F |
+| Token 的 audience 不是 file-api 時拒絕 | F |
+| 拒絕執行檔與腳本(6 例) | F;U |
+| 副檔名與檔頭不符時拒絕 | F;U |
+| 多檔上傳其中一個不合格時整批拒絕 | F |
+| 超過 50 MB 拒絕 | F(另測剛好 50 MB 可以上傳);Nginx 層未自動化(D4-B 未實作) |
+| SVG 不 inline | F |
+| 不接受非 UUID 的檔案識別 | F |
+| 實體路徑不可逃出檔案根目錄 | F;U |
+| 只能看到自己公司的檔案 | F;INT(SQL 範圍條件) |
+| 系統身分只能存取自己上傳的檔案 | F;INT |
+| 原檔名的路徑片段被移除 | F;U |
+
+## legacy/inventory.feature(F0)
+
+| 場景 | 測試 |
+| --- | --- |
+| 盤點 NAS 上 filebackend 各平台目錄 | I(暫存目錄模擬);L(真實 NAS BPM / OTHER) |
+| 盤點 SMB 備份(CP)辨識中文原檔名 | I;L(真實 NAS CP) |
+| 盤點 166 PortalSolar 只掃資料目錄 | I;L(真實 166 EHS) |
+| 來源連不到時明確標示未查詢 | I |
+| 個別檔案讀不到屬性時列入錯誤清單 | I |
+| 盤點絕不修改來源 | I(spy:只呼叫 readdir / stat / openRead,前後快照相同);L(真實來源含 SHA-256 掃描前後快照相同) |
+| 盤點報告寫到本機輸出目錄 | 未自動化(CLI `npm run inventory` 手動執行;輸出目錄位於來源之下時拒絕,程式審查) |

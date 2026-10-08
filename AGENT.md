@@ -45,7 +45,7 @@
 | 項目 | 內容 |
 | --- | --- |
 | 做什麼 | GigaNexus 共用的附件(檔案)服務:上傳 / 下載 / 清單 / 軟刪除 / 單據綁定;檔案存放於主機 WSL 並排程備份到 NAS;**BPM 表單附件唯讀查詢與下載**;**舊系統(GeneralBackend `filebackend` / `SMBbackend`、166 PortalSolar)檔案的 UUID 對照與同步**;舊格式相容層 |
-| 狀態 | **規劃中,尚無程式碼**。規劃文件以 [docs/PRD.md](docs/PRD.md) 為總綱(決策 D1–D17 已定案,§11 仍有待確認事項;主題文件見 §12);工作項目 F0–F7 的時程**以 NexusPlan 甘特圖為準**,文件不列日期 |
+| 狀態 | **F1 file-api 主體已實作並通過測試(待測試區部署)**;程式在 `file-api/`(repo 根目錄只放文件與 CI)。規劃文件以 [docs/PRD.md](docs/PRD.md) 為總綱(決策 D1–D17 已定案,§11 仍有待確認事項;主題文件見 §12);工作項目 F0–F7 的時程**以 NexusPlan 甘特圖為準**,文件不列日期 |
 | 系統代碼 / API | `file`;新 API `/api/file/files*`、`/api/file/bpm/*`;盤點 `/api/file/inventory/*`;舊格式相容層 `/api/file/compat/{fb,smb,portal}/*`(D15) |
 | 服務代碼 / port | `file-api` / **51272**(D2 定案;**尚未登記**於 `../giga-api-gateway-bff/docs/BACKEND-GUIDE.md` §3.3,開發前先向 Gateway 負責人登記,不可自行換 port) |
 | 登入 | **後端不實作登入**,只信任 Gateway 的 `X-Internal-Token`。唯一例外:舊格式相容路由(舊前端沒有 Gateway 登入,規劃 `auth_mode = public` + Nginx 內網白名單,需 IT 核准,`docs/API.md` §4.4 規則 4) |
@@ -209,20 +209,34 @@
 
 ### 9.1 專案地圖與設計原則
 
-- **專案地圖:`docs/PROJECT-MAP.md`**(目前只有文件,§1.2 為 F1 預計結構)。開發新功能後,在同一個變更內更新(新增 / 搬移 / 刪除目錄或主要檔案、職責改變、新 API 都要反映),並更新開頭的「最後更新」;規則見 Gateway `AGENT.md` §10.7.1。
-- 核心設計原則依 Gateway `AGENT.md` §10.7.2 的 **TypeScript / Node.js 後端**列。預計的分層(F1 建立後以專案地圖為準):
+- **專案地圖:`docs/PROJECT-MAP.md`**。開發新功能後,在同一個變更內更新(新增 / 搬移 / 刪除目錄或主要檔案、職責改變、新 API 都要反映),並更新開頭的「最後更新」;規則見 Gateway `AGENT.md` §10.7.1。
+- 核心設計原則依 Gateway `AGENT.md` §10.7.2 的 **TypeScript / Node.js 後端**列。分層(以專案地圖為準):
 
 | 原則 | 本專案做法 |
 | --- | --- |
+| 程式目錄 | **程式與套件一律放 `file-api/`**(使用者要求,2026-10-08);repo 根目錄只放 `AGENT.md`、`GEMINI.md`、`README.md`、`docs/`、`.gitlab-ci.yml`、`.gitignore` |
 | 職責分離 | `routes/`(新 API)與 `compat/`(舊格式相容層)只做 schema 驗證、權限宣告與格式轉換;儲存、備份、同步、BPM 取檔、對照表的邏輯放 `modules/<功能>/`(核心,不直接依賴 Fastify,I/O 以參數或介面注入);資料庫、檔案系統、NAS、5144 為基礎設施 |
-| 原始碼根目錄 | `src/`;建置輸出 `dist/`(不進版控),`tsconfig.build.json` 只編 `src/` |
-| 集中測試 | `test/`(與 `src/` 平行,`unit/`、`integration/`、`e2e/` 分開);同步與備份用暫存目錄與假檔案測 |
+| 原始碼根目錄 | `file-api/src/`;建置輸出 `file-api/dist/`(不進版控),`tsconfig.build.json` 只編 `src/` |
+| 集中測試 | `file-api/test/`(與 `src/` 平行):`*.test.ts` 單元(暫存目錄、記憶體 repo)、`int/` SQL Server 整合、`legacy/` 真實舊來源唯讀冒煙;同步與備份用暫存目錄與假檔案測 |
 
 - 既有程式與原則不同之處列在專案地圖「已知差異」,不要為了符合原則大規模搬移(§3)。
 
 ### 常用指令
 
-目前沒有程式碼;F1 建立骨架後補上。預期比照 `samples/node-backend`:`npm run dev`(`GW_ENV=dev`)、`npm test`、`npm run typecheck`、`npm run build`、`npm run -s openapi`、`npm run -s gw:lookup -- <關鍵字>`。
+皆在 `file-api/` 執行;`.env` 由 `.env.example` 複製(使用者填密碼,AI 不開啟)。
+
+| 指令 | 用途 |
+| --- | --- |
+| `npm run dev` | 本機啟動(`GW_ENV=dev`,可設 `DEV_SKIP_TOKEN=1` 直連) |
+| `npm test` | 單元測試(不連資料庫、不碰舊來源) |
+| `npm run test:int` | SQL Server 2012 整合測試(`FILE_TEST_DB_NAME` = `giganexus_gw_poc_test`,會清空該庫的 `file_svc`) |
+| `npm run test:legacy` | 真實 NAS / 166 唯讀冒煙(掃描前後快照相同才通過) |
+| `npm run typecheck`、`npm run build`、`npm run format:check` | 型別、建置、格式 |
+| `npm run db:generate` | schema 變更後產生 migration(離線;產生後人工審查並加註) |
+| `npm run db:check-2012` | migration 的 SQL Server 2012 語法檢查 |
+| `npm run db:migrate` | 以 `file_migrate` 套用 migration(紀錄表 `file_svc.__file_migrations`) |
+| `npm run inventory -- [--source …] [--hash]` | 舊來源唯讀盤點,報告寫到 `data/inventory/` |
+| `npm run -s openapi` | 輸出 OpenAPI |
 
 ---
 
@@ -263,7 +277,7 @@
 | --- | --- | --- |
 | Bug 修改紀錄 | `docs/DevelopmentProcess/BugFix.md` | Bug 修改 |
 | 新增功能紀錄 | `docs/DevelopmentProcess/NewFeatures.md` | 新功能(含 F0–F7 各項完成) |
-| 後端修改紀錄 | `docs/DevelopmentProcess/BackendCorrection.md` | `src/`、`deploy/`、migration |
+| 後端修改紀錄 | `docs/DevelopmentProcess/BackendCorrection.md` | `file-api/src/`、`file-api/deploy/`、migration |
 
 動到 Gateway 專案(`nginx/`、`deploy/`、`docs/`)或 GigaItApp 時,**在那個 repo** 另留紀錄;每個 repo 各自 commit,訊息註明配合的另一個 repo 與 commit。
 

@@ -9,15 +9,15 @@
 
 | 項目 | 內容 |
 | --- | --- |
-| 文件版本 | v0.2(2026-10-08,P3 改為在 `giganexus_gw` 建 schema `file_svc`、P4 定案 Drizzle(D7、D17));v0.1(2026-10-08,自 FILE-PLAN v0.6 §12 拆出;補交付物、驗收、前置工作與甘特圖對照) |
+| 文件版本 | v0.3(2026-10-08,F1 程式與測試完成、F0 NAS / 166 盤點完成;前置 P2–P4 完成);v0.2(2026-10-08,P3 改為在 `giganexus_gw` 建 schema `file_svc`、P4 定案 Drizzle(D7、D17));v0.1(2026-10-08,自 FILE-PLAN v0.6 §12 拆出;補交付物、驗收、前置工作與甘特圖對照) |
 
 ## 2. 進度與里程碑
 
 | 代號 | 項目 | 甘特圖 | 狀態 | 相依 |
 | --- | --- | --- | --- | --- |
 | — | 規劃與文件(FILE-PLAN → `docs/` 文件組) | W11-1 | ✅ 完成 | — |
-| F0 | 舊系統盤點 | W11-2 | 🔶 進行中(122 log 與兩張舊表統計完成;166 / 190 / NAS 目錄待唯讀存取) | — |
-| F1 | file-api 主體 | W11-3 | 未開始 | 規劃;前置 §3 |
+| F0 | 舊系統盤點 | W11-2 | 🔶 進行中(122 log、兩張舊表統計、**NAS 與 166 唯讀盤點完成**(LEGACY-INVENTORY §6);190 `SDSFILES` 與 `WebAppDb` 逐筆對照待唯讀帳號) | — |
+| F1 | file-api 主體 | W11-3 | 🔶 程式與測試完成(單元 53、SQL Server 2012 整合 5、真實來源唯讀 3);**待測試區部署**(主機 2 機密 + develop) | 規劃;前置 §3 |
 | F2 | NAS 備份 | W11-4 | 未開始 | F1 |
 | F6 | BPM 附件(唯讀) | W11-5 | 未開始 | F1 |
 | F3 | GigaItApp 檔案管理頁 | W11-6 | 未開始 | F1 |
@@ -30,9 +30,9 @@
 
 | # | 項目 | 負責 | 需要於 |
 | --- | --- | --- | --- |
-| P1 | 建立 GitLab 專案與 remote、CI 變數、Registry 路徑 | 使用者 / Gateway 負責人 | F1 |
-| P2 | 向 Gateway 負責人登記 `file-api` 51272(BACKEND-GUIDE §3.3)與系統代碼 `file` | Gateway 負責人 | F1 |
-| P3 | 在 `giganexus_gw_test`、`giganexus_gw_poc_test`(正式區之後在 `giganexus_gw`)建 schema `file_svc` 與本服務 app / migrate 帳號(只授權 `file_svc`,D7);Claude 寫腳本、使用者以 sa 執行 | 使用者執行腳本 | F1 |
+| P1 | ✅ GitLab / GitHub 專案已建立;CI `.gitlab-ci.yml`(check、develop → deploy-test)。**主機 2 需先執行 `file-api/deploy/host2-set-secrets.sh`** | 使用者執行腳本 | 測試區部署 |
+| P2 | ✅ 已登記 `file-api` 51272(BACKEND-GUIDE §3.3,2026-10-08) | — | — |
+| P3 | ✅ `giganexus_gw_test`、`giganexus_gw_poc_test` 已建 schema `file_svc` 與 `file_app` / `file_migrate`(2026-10-08,`file-api/db/dba/01-create-schema.sql`);migration 已套用到 `giganexus_gw_test`。正式區之後在 `giganexus_gw` 另建 | — | — |
 | P4 | ~~決定資料存取方式~~ ✅ 已定案:Drizzle ORM(版本同 Gateway)+ 舊資料庫 `mssql` 唯讀(D17) | — | — |
 | P5 | NAS 子目錄與服務帳號(PRD §11 #4) | IT | F2 |
 | P6 | NaNa 唯讀帳號、5144 金鑰更換(PRD §11 #8) | BPM 負責人 | F6 |

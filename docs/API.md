@@ -1,7 +1,7 @@
 # GigaNexus 附件服務 — API 規格(草案)
 
 > 本文件自 [PRD.md](PRD.md) §7 拆出(原 FILE-PLAN §8),為該主題的唯一維護來源;PRD 僅保留摘要與連結。
-> 對應 PRD 版本:**v0.8**(2026-10-08)。**尚無程式碼**;實作後以 file-api 的 OpenAPI(`/openapi.json`,自動註冊到 Gateway 路由表)為準,本文件同步更新。
+> 對應 PRD 版本:**v0.8**(2026-10-08)。**§2 已實作(F1,`file-api/src/routes/files.ts`)**,以 file-api 的 OpenAPI(`/openapi.json`,自動註冊到 Gateway 路由表)為準;§3、§4 尚未實作。
 > 通用規範見 Gateway [BACKEND-GUIDE.md](../../giga-api-gateway-bff/docs/BACKEND-GUIDE.md) §4–§5、§7.5;本專案重點見 `AGENT.md` §8。
 
 ---
@@ -11,12 +11,13 @@
 | 項目 | 內容 |
 | --- | --- |
 | 對外路徑 | 經 Gateway `/api/file/*`;後端路徑 `/v1/{resource}` 自動對應 `/api/file/{resource}`,相容層以 `x-gateway-path` 指定(§4) |
-| 身分 | 只信任 Gateway 的 `X-Internal-Token`;權限由 BFF 依 `x-permission` 檢查,file-api 只做資料層級過濾(公司、部門、`source_system`) |
+| 身分 | 只信任 Gateway 的 `X-Internal-Token`;權限由 BFF 依 `x-permission` 檢查,file-api 只做資料層級過濾(§1.2) |
 | 錯誤 | Gateway 統一格式 `{ code, message, requestId, details? }`,自訂代碼 `FILE_` 開頭;**相容層例外**(§4 規則 1) |
 | 分頁 | `page`、`pageSize`(上限 100),回應 `{ items, total, page, pageSize }`;相容層 `/sql-files` 特例見 §4 規則 8 |
 | 大小 | 單檔 50 MB(D3);大於 10 MB 的上傳走 Nginx `auth_request` 直送(D4-B,[ARCHITECTURE.md](ARCHITECTURE.md) §2) |
 | 下載標頭 | `Content-Disposition` 同時給 ASCII 後備名與 `filename*=UTF-8''…`;`X-Content-Type-Options: nosniff` |
 | 稽核 | 上傳 / 下載 / 刪除 / 綁定寫 `file_access_log`([DATABASE.md](DATABASE.md) §2) |
+| 錯誤代碼 | 400 `FILE_NO_FILE`、`VALIDATION_FAILED`;401 `FILE_INTERNAL_TOKEN_INVALID`;403 `DATA_ACCESS_DENIED`;404 `FILE_NOT_FOUND`;413 `FILE_TOO_LARGE`、`FILE_TOO_MANY`;415 `FILE_TYPE_NOT_ALLOWED`、`FILE_CONTENT_MISMATCH`;500 `FILE_STORAGE_MISSING`(有紀錄無實體檔)、`INTERNAL_ERROR` |
 
 ### 1.1 權限代碼
 
@@ -30,24 +31,37 @@
 | `file.storage.manage` | 重試失敗的備份 |
 | `file.legacy.read` | 舊系統盤點結果(唯讀) |
 
-畫面節點與這些權限的綁定見 [PRD.md](PRD.md) §8。
+畫面節點與這些權限的綁定見 [PRD.md](PRD.md) §8。F1 的 OpenAPI 只宣告已實作 API 用到的 `file.object.*`、`file.storage.read`;其餘隨 F2 / F4 / F6 加入。
+
+### 1.2 資料範圍(第一版,PRD §11 #5 待定)
+
+| 身分 | 看得到 / 可下載 / 可刪除 | 可綁定 |
+| --- | --- | --- |
+| 使用者(Token `emp`、`cos`) | 自己上傳的,或 `company_id` 在 `cos`(所屬公司,含兼任)之內 | 只有自己上傳的 |
+| 系統身分(`amr` 為 `api_key` / `webhook`,`sub` 為 `client:*` / `webhook:*`) | 只有自己上傳的 | 只有自己上傳的 |
+
+- 上傳時 `company_id` = Token `cos` 的第一個公司(系統身分為空);不在範圍內回 403 `DATA_ACCESS_DENIED`,不存在或已刪除回 404 `FILE_NOT_FOUND`。
 
 ## 2. 新服務檔案
 
 | 方法 | 路徑 | 說明 | 權限 |
 | --- | --- | --- | --- |
-| POST | `/api/file/files` | 上傳(multipart `file`,可多檔;選填 `sourceApp`、`refType`、`refNo`) | `file.object.upload` |
+| POST | `/api/file/files` | 上傳(multipart `file`,一次最多 10 個;選填 `sourceSystem`(使用者預設 `file`、系統身分預設 client 代碼)、`sourceApp`(原樣保存,不拆)、`refType`、`refNo`) | `file.object.upload` |
 | GET | `/api/file/files` | 清單(篩選來源系統、單號、上傳者、日期;分頁) | `file.object.read` |
 | GET | `/api/file/files/:uuid` | 檔案資訊 | `file.object.read` |
 | GET | `/api/file/files/:uuid/content` | 下載(`Content-Disposition` 含 UTF-8 檔名;`?inline=1` 預覽圖片 / PDF) | `file.object.read` |
 | POST | `/api/file/files/bind` | 將暫存檔綁定到單據(`uuids[]`、`refType`、`refNo`) | `file.object.upload` |
 | DELETE | `/api/file/files/:uuid` | 軟刪除 | `file.object.delete` |
 | GET | `/api/file/storage` | 容量、備份統計、失敗清單 | `file.storage.read` |
-| POST | `/api/file/storage/backup/retry` | 重試失敗的備份 | `file.storage.manage` |
-| GET | `/api/file/inventory/*` | 舊系統盤點結果(唯讀) | `file.legacy.read` |
+| POST | `/api/file/storage/backup/retry` | 重試失敗的備份(**F2,未實作**) | `file.storage.manage` |
+| GET | `/api/file/inventory/*` | 舊系統盤點結果(唯讀;**F4,未實作**;F0 先以 CLI `npm run inventory` 產出報告) | `file.legacy.read` |
 | GET | `/healthz`、`/openapi.json` | 健康檢查、Gateway 匯入 | 內網 |
 
-**上傳兩段式(建議)**:畫面先上傳拿到 `file_uuid`(此時 `ref_no` 為空,屬暫存),單據存檔時再呼叫 `bind`;超過 24 小時未綁定的暫存檔由排程清除。避免「單據沒存成、檔案留下垃圾」。
+**上傳兩段式(建議)**:畫面先上傳拿到 `file_uuid`(此時 `ref_no` 為空,屬暫存),單據存檔時再呼叫 `bind`;超過 24 小時未綁定的暫存檔由排程清除(每小時,標記 `deleted_by = system:temp-cleanup` 並移除實體檔)。避免「單據沒存成、檔案留下垃圾」。
+
+**上傳的檢查順序**:multipart 串流邊收邊寫 `tmp/`(同時算 SHA-256)→ 全部檔案收完 → 每個檔案檢查大小、副檔名白名單、檔頭 → **全部通過**才 rename 到正式路徑並寫資料庫;任一個不合格整批拒絕並清掉暫存。
+
+**大小**:file-api 本身接受 50 MB;經 BFF 動態路由時受 BFF 10 MB 限制,大於 10 MB 需 Gateway Nginx 直送路徑(D4-B,[DEPLOYMENT.md](DEPLOYMENT.md) §4,尚未實作)。
 
 ## 3. BPM 附件(唯讀)
 
