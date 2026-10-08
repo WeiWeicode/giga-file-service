@@ -10,7 +10,7 @@ import { createDb, openPool } from './db/client.js';
 import { DrizzleFileRepo } from './modules/files/drizzle-repo.js';
 import { BackupService } from './modules/backup/backup-service.js';
 import { gatewayAlert } from './modules/backup/gateway-alert.js';
-import { BpmService } from './modules/bpm/bpm-service.js';
+import { BpmService, BpmSources } from './modules/bpm/bpm-service.js';
 import { BpmDocServer } from './modules/bpm/doc-server.js';
 import { NanaBpmRepo } from './modules/bpm/nana-repo.js';
 import { FileService } from './modules/files/file-service.js';
@@ -58,17 +58,24 @@ const backup =
       })
     : null;
 
-// BPM 附件(F6):NaNa 連線延遲到第一次查詢,連不上不影響啟動
-const bpmRepo = config.bpm ? new NanaBpmRepo(config.bpm.sql) : null;
-const bpm =
-  config.bpm && bpmRepo
-    ? new BpmService({
-        repo: bpmRepo,
-        docs: new BpmDocServer({ baseUrl: config.bpm.fileUrl, apiKey: config.bpm.apiKey }),
-        log: (entry) => repo.log(entry),
-        source: config.bpm.sql.server,
-      })
-    : null;
+// BPM 附件(F6):測試區 191 / 正式區 190 各一組;NaNa 連線延遲到第一次查詢,連不上不影響啟動
+const bpmRepos = (config.bpm?.sources ?? []).map((src) => ({ src, repo: new NanaBpmRepo(src.sql) }));
+const bpm = config.bpm
+  ? new BpmSources(
+      bpmRepos.map(
+        ({ src, repo: nana }) =>
+          new BpmService({
+            repo: nana,
+            docs: new BpmDocServer({ baseUrl: src.fileUrl, apiKey: src.apiKey }),
+            log: (entry) => repo.log(entry),
+            env: src.env,
+            label: src.label,
+            source: src.sql.server,
+          }),
+      ),
+      config.bpm.defaultEnv,
+    )
+  : null;
 
 const app = await buildApp({
   config,
@@ -123,6 +130,6 @@ for (const signal of ['SIGINT', 'SIGTERM'])
     // close 會一併送出監控緩衝(最多等 3 秒)
     void app
       .close()
-      .then(() => Promise.all([pool.close(), bpmRepo?.close()]))
+      .then(() => Promise.all([pool.close(), ...bpmRepos.map((b) => b.repo.close())]))
       .then(() => process.exit(0));
   });

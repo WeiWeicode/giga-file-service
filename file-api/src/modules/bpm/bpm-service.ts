@@ -4,6 +4,7 @@
  *   - 每次下載寫 file_access_log(action = bpm_download,detail = Doid + 單號)
  */
 import type { Readable } from 'node:stream';
+import type { BpmEnv } from '../../config.js';
 import { AppError } from '../../errors.js';
 import type { Actor } from '../files/file-service.js';
 import { canInline, contentDisposition, MIME, sanitizeOriginalName } from '../files/file-types.js';
@@ -15,6 +16,9 @@ export interface BpmServiceOptions {
   repo: BpmRepo;
   docs: BpmDocServer;
   log: (entry: AccessLog) => Promise<void>;
+  env: BpmEnv;
+  /** 顯示用:測試區 / 正式區 */
+  label: string;
   /** 顯示用:資料來源主機(191 測試 / 190 正式) */
   source: string;
 }
@@ -32,6 +36,14 @@ export class BpmService {
 
   get source(): string {
     return this.opts.source;
+  }
+
+  get env(): BpmEnv {
+    return this.opts.env;
+  }
+
+  get label(): string {
+    return this.opts.label;
   }
 
   list(serialNumber: string): Promise<BpmAttachment[]> {
@@ -59,7 +71,7 @@ export class BpmService {
         userId: actor.scope.userId,
         ip: actor.ip,
         requestId: actor.requestId,
-        detail: `${a.doid} ${a.serialNumber ?? '-'}`,
+        detail: `${a.doid} ${a.serialNumber ?? '-'} ${this.opts.env}`,
       });
     } catch (err) {
       stream.destroy();
@@ -72,5 +84,27 @@ export class BpmService {
       mime: (a.ext && MIME[a.ext]) || 'application/octet-stream',
       disposition: contentDisposition(downloadName(a), inline && canInline(a.ext)),
     };
+  }
+}
+
+/** 已設定的 BPM 來源(測試區 191 / 正式區 190);?env= 未指定時用 defaultEnv */
+export class BpmSources {
+  private readonly byEnv: Map<BpmEnv, BpmService>;
+
+  constructor(
+    services: BpmService[],
+    readonly defaultEnv: BpmEnv,
+  ) {
+    this.byEnv = new Map(services.map((s) => [s.env, s]));
+  }
+
+  list(): { env: BpmEnv; label: string; source: string }[] {
+    return [...this.byEnv.values()].map((s) => ({ env: s.env, label: s.label, source: s.source }));
+  }
+
+  get(env?: BpmEnv): BpmService {
+    const s = this.byEnv.get(env ?? this.defaultEnv);
+    if (!s) throw new AppError(409, 'FILE_BPM_DISABLED', `此環境未設定 BPM ${env === 'prod' ? '正式區' : '測試區'}來源`);
+    return s;
   }
 }

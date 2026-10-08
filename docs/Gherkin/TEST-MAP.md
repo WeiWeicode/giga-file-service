@@ -68,6 +68,9 @@
 | 5144 金鑰錯誤回 502 FILE_BPM_UPSTREAM | P |
 | 5144 連不上回 502 | P |
 | 資料庫的 physicalName 含路徑字元時拒絕,不送到 5144 | P |
+| 列出 BPM 來源;?env= 切換來源,未指定用預設來源 | P;U(設定:BPM_TEST_* / 沿用 BPM_* / BPM_PROD_*、預設來源) |
+| 下載紀錄含來源 env | P |
+| 只設定其中一個來源時,另一個回 409 | P |
 | 未設定 BPM 的環境 | P |
 
 ## legacy/inventory.feature(F0)

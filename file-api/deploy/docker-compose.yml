@@ -8,8 +8,9 @@
 # NAS 備份(STORAGE.md §2):主機 FILE_BACKUP_HOST_ROOT(預設 /mnt/nas-docker/giga-files/test,cifs 掛載由 host2-mount-nas.sh 建立)
 #   bind mount 到 /data/backup;根目錄沒有標記檔 .giga-files-backup(NAS 未掛載)時備份整輪跳過,不會寫到本機
 #   NAS 掛載晚於容器啟動時,容器看不到掛載,需 --force-recreate
-# BPM 附件(F6):file.env 有 BPM_DB_HOST 才啟用;機密在 FILE_SECRETS_DIR/bpm/(host2-set-bpm-secrets.sh 產生),
-#   以目錄唯讀掛載:未執行腳本前目錄為空、BPM_DB_HOST 空白,/api/file/bpm/* 回 409,不影響部署
+# BPM 附件(F6):測試區 191(BPM_TEST_*)、正式區 190(BPM_PROD_*),file.env 有 {前綴}DB_HOST 才啟用該來源;
+#   機密在 FILE_SECRETS_DIR/bpm/{test,prod}_*(host2-set-bpm-secrets.sh test|prod 產生),以目錄唯讀掛載:
+#   未執行腳本前目錄為空、HOST 空白,該來源回 409,不影響部署
 # 機密(FILE_SECRETS_DIR,uid 1000 可讀;file-api/deploy/host2-set-secrets.sh 產生):
 #   file_db_password(file_app)、gw_api_key(Gateway CLI client:create --code file-api)、monitor_api_key(giga-observe 服務 file-api)
 # migration 由開發者電腦 npm run db:migrate 套用(file_migrate 不放測試區主機)
@@ -38,13 +39,21 @@ services:
       BACKUP_MAX_ATTEMPTS: ${FILE_BACKUP_MAX_ATTEMPTS:-5}
       # 備份失敗告警收件人工號(逗號分隔);需 gw_api_key 有 notify.message.send 與範本 FILE_BACKUP_FAILED,未設定只記錄日誌
       BACKUP_ALERT_USERS: ${FILE_BACKUP_ALERT_USERS:-}
-      BPM_DB_HOST: ${BPM_DB_HOST:-}
-      BPM_DB_PORT: ${BPM_DB_PORT:-1433}
-      BPM_DB_NAME: ${BPM_DB_NAME:-NaNa}
-      BPM_DB_USER: ${BPM_DB_USER:-file_bpm_ro}
-      BPM_DB_PASSWORD_FILE: /run/secrets/bpm/bpm_db_password
-      BPM_FILE_URL: ${BPM_FILE_URL:-}
-      BPM_FILE_API_KEY_FILE: /run/secrets/bpm/bpm_file_api_key
+      BPM_TEST_DB_HOST: ${BPM_TEST_DB_HOST:-}
+      BPM_TEST_DB_PORT: ${BPM_TEST_DB_PORT:-1433}
+      BPM_TEST_DB_NAME: ${BPM_TEST_DB_NAME:-NaNa}
+      BPM_TEST_DB_USER: ${BPM_TEST_DB_USER:-file_bpm_ro}
+      BPM_TEST_DB_PASSWORD_FILE: /run/secrets/bpm/test_db_password
+      BPM_TEST_FILE_URL: ${BPM_TEST_FILE_URL:-}
+      BPM_TEST_FILE_API_KEY_FILE: /run/secrets/bpm/test_file_api_key
+      BPM_PROD_DB_HOST: ${BPM_PROD_DB_HOST:-}
+      BPM_PROD_DB_PORT: ${BPM_PROD_DB_PORT:-1433}
+      BPM_PROD_DB_NAME: ${BPM_PROD_DB_NAME:-NaNa}
+      BPM_PROD_DB_USER: ${BPM_PROD_DB_USER:-file_bpm_ro}
+      BPM_PROD_DB_PASSWORD_FILE: /run/secrets/bpm/prod_db_password
+      BPM_PROD_FILE_URL: ${BPM_PROD_FILE_URL:-}
+      BPM_PROD_FILE_API_KEY_FILE: /run/secrets/bpm/prod_file_api_key
+      BPM_DEFAULT_ENV: ${BPM_DEFAULT_ENV:-}
       FILE_DB_HOST: ${FILE_DB_HOST:?FILE_DB_HOST 必須設定}
       FILE_DB_PORT: ${FILE_DB_PORT:-1433}
       FILE_DB_NAME: ${FILE_DB_NAME:?FILE_DB_NAME 必須設定}

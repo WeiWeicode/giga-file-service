@@ -119,6 +119,32 @@ describe('設定(AGENT.md §6)', () => {
   it('缺少 FILE_ROOT 啟動失敗', () => {
     assert.throws(() => loadConfig({ ...base, FILE_ROOT: '', GW_ENV: 'dev', FILE_DB_PASSWORD: 'p' }), /FILE_ROOT 未設定/);
   });
+  it('BPM 來源:BPM_TEST_* 或沿用不帶前綴的 BPM_*(191)、BPM_PROD_*(190);預設來源依 GW_ENV', () => {
+    const dev = { ...base, GW_ENV: 'dev', FILE_DB_PASSWORD: 'p' };
+    const src = (p: string, host: string) => ({
+      [`${p}DB_HOST`]: host,
+      [`${p}DB_USER`]: 'file_bpm_ro',
+      [`${p}DB_PASSWORD`]: 'x',
+      [`${p}FILE_URL`]: `http://${host}:5144`,
+      [`${p}FILE_API_KEY`]: 'k',
+    });
+    assert.equal(loadConfig(dev).bpm, null);
+    const legacy = loadConfig({ ...dev, ...src('BPM_', '10.10.130.191') }).bpm!;
+    assert.deepEqual(
+      legacy.sources.map((s) => [s.env, s.label, s.sql.server, s.sql.database, s.fileUrl]),
+      [['test', '測試區', '10.10.130.191', 'NaNa', 'http://10.10.130.191:5144']],
+    );
+    const both = loadConfig({ ...dev, ...src('BPM_TEST_', '10.10.130.191'), ...src('BPM_PROD_', '10.10.130.190') }).bpm!;
+    assert.deepEqual(
+      both.sources.map((s) => s.env),
+      ['test', 'prod'],
+    );
+    assert.equal(both.defaultEnv, 'test');
+    assert.equal(loadConfig({ ...dev, ...src('BPM_PROD_', '10.10.130.190') }).bpm!.defaultEnv, 'prod', '只有正式區時預設正式區');
+    assert.equal(loadConfig({ ...dev, ...src('BPM_TEST_', 'a'), ...src('BPM_PROD_', 'b'), BPM_DEFAULT_ENV: 'prod' }).bpm!.defaultEnv, 'prod');
+    assert.throws(() => loadConfig({ ...dev, BPM_PROD_DB_HOST: 'b' }), /BPM_PROD_DB_USER 未設定/);
+    assert.throws(() => loadConfig({ ...dev, BPM_DEFAULT_ENV: 'dev' }), /BPM_DEFAULT_ENV/);
+  });
   it('NAS 備份:未設定 BACKUP_ROOT 不備份;有設定時預設每 5 分鐘、失敗 5 次告警', () => {
     const dev = { ...base, GW_ENV: 'dev', FILE_DB_PASSWORD: 'p' };
     assert.equal(loadConfig(dev).backup, null);

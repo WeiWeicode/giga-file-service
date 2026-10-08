@@ -72,8 +72,8 @@
 | 本服務 app / migrate 帳密(只授權 schema `file_svc`;測試與正式分開,比照 Gateway) | 資料庫 | 使用者執行腳本(隱藏輸入)建立 LOGIN 與授權、寫入主機機密檔 |
 | NAS 服務帳號 | cifs 掛載 credentials 檔(權限 600) | 同上 |
 | 166 唯讀帳號 | 166 同步 | 同上 |
-| NaNa 唯讀帳號 `file_bpm_ro` | BPM 附件查詢(`db/dba/02-create-bpm-readonly.sql`) | `deploy/host2-set-bpm-secrets.sh` → `file-secrets/bpm/bpm_db_password`(目錄唯讀掛載 `/run/secrets/bpm`) |
-| BPM 5144 `X-API-Key` | 取檔服務(**建議更換**,PRD §11 #8;目前沿用既有金鑰) | 同上 → `file-secrets/bpm/bpm_file_api_key`;**只放 file-api** |
+| NaNa 唯讀帳號 `file_bpm_ro` | BPM 附件查詢(`db/dba/02-create-bpm-readonly.sql`) | `deploy/host2-set-bpm-secrets.sh test|prod` → `file-secrets/bpm/{test,prod}_db_password`(目錄唯讀掛載 `/run/secrets/bpm`;191 / 190 各一組) |
+| BPM 5144 `X-API-Key` | 取檔服務(**建議更換**,PRD §11 #8;目前沿用既有金鑰) | 同上 → `file-secrets/bpm/{test,prod}_file_api_key`;**只放 file-api** |
 
 - 不入版控、不寫進映像檔、不貼進對話或日誌;以 `<NAME>_FILE` 指向 Docker secret。
 - **AI 不開啟 `.env`、不讀取機密檔、不要求使用者貼帳密**(`AGENT.md` §7.2)。

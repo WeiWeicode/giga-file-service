@@ -156,7 +156,7 @@ describe('BPM 附件 API', () => {
       userId: 'S112009',
       ip: '127.0.0.1',
       requestId: repo.logs.at(-1)!.requestId,
-      detail: `${a.doid} CustomerComplaintProcess00000014`,
+      detail: `${a.doid} CustomerComplaintProcess00000014 test`,
     });
     assert.equal(fake.requests.length, 1, '預測段數第一次就命中');
   });
@@ -214,12 +214,61 @@ describe('BPM 附件 API', () => {
   });
 });
 
+describe('測試區 191 / 正式區 190 兩個來源', () => {
+  const testRepo = new MemoryBpmRepo([att({ doid: '11111111111111111111111111111111', originalName: '測試區.pdf', ext: 'pdf' })]);
+  const prodRepo = new MemoryBpmRepo([att({ doid: '22222222222222222222222222222222', originalName: '正式區.pdf', ext: 'pdf' })]);
+
+  it('場景: 列出 BPM 來源;?env= 切換來源,未指定用預設來源', async () => {
+    t = await buildTestApp(jwks, {
+      bpm: [
+        { repo: testRepo, fileUrl: fake.url, apiKey: KEY, env: 'test' },
+        { repo: prodRepo, fileUrl: fake.url, apiKey: KEY, env: 'prod' },
+      ],
+    });
+    const src = (await get('/v1/bpm/sources')).json();
+    assert.equal(src.defaultEnv, 'test');
+    assert.deepEqual(src.items, [
+      { env: 'test', label: '測試區', source: '10.10.130.191' },
+      { env: 'prod', label: '正式區', source: '10.10.130.190' },
+    ]);
+    const sn = 'CustomerComplaintProcess00000014';
+    const dflt = (await get(`/v1/bpm/forms/${sn}/attachments`)).json();
+    assert.deepEqual([dflt.env, dflt.label, dflt.items[0].originalName], ['test', '測試區', '測試區.pdf']);
+    const prod = (await get(`/v1/bpm/forms/${sn}/attachments?env=prod`)).json();
+    assert.deepEqual([prod.env, prod.source, prod.items[0].originalName], ['prod', '10.10.130.190', '正式區.pdf']);
+    assert.equal((await get(`/v1/bpm/attachments/22222222222222222222222222222222`)).statusCode, 404, 'Doid 要搭配查到它的 env');
+    assert.equal((await get(`/v1/bpm/attachments/22222222222222222222222222222222?env=prod`)).statusCode, 200);
+    assert.equal((await get(`/v1/bpm/forms/${sn}/attachments?env=dev`)).statusCode, 400);
+  });
+
+  it('下載紀錄含來源 env', async () => {
+    t = await buildTestApp(jwks, { bpm: [{ repo: prodRepo, fileUrl: fake.url, apiKey: KEY, env: 'prod' }] });
+    const a = prodRepo.items[0]!;
+    place(fake, a, 11, Buffer.from('prod'));
+    const res = await get(`/v1/bpm/attachments/${a.doid}/content?env=prod`);
+    assert.equal(res.body, 'prod');
+    assert.match((t.repo as MemoryFileRepo).logs.at(-1)!.detail!, / prod$/);
+  });
+
+  it('只設定其中一個來源時,另一個回 409', async () => {
+    t = await buildTestApp(jwks, { bpm: { repo: testRepo, fileUrl: fake.url, apiKey: KEY } });
+    const res = await get('/v1/bpm/forms/CustomerComplaintProcess00000014/attachments?env=prod');
+    assert.equal(res.statusCode, 409);
+    assert.match(res.json().message, /正式區/);
+    assert.deepEqual(
+      (await get('/v1/bpm/sources')).json().items.map((i: { env: string }) => i.env),
+      ['test'],
+    );
+  });
+});
+
 describe('未設定 BPM 的環境', () => {
   it('回 409 FILE_BPM_DISABLED;路由仍在 OpenAPI(自動註冊到 Gateway)', async () => {
     t = await buildTestApp(jwks);
     const res = await get('/v1/bpm/forms/CustomerComplaintProcess00000014/attachments');
     assert.equal(res.statusCode, 409);
     assert.equal(res.json().code, 'FILE_BPM_DISABLED');
+    assert.deepEqual((await get('/v1/bpm/sources')).json(), { defaultEnv: null, items: [] });
     const doc = (await t.app.inject('/openapi.json')).json();
     assert.equal(doc.paths['/v1/bpm/attachments/{doid}/content'].get['x-permission'], 'file.bpm.read');
     assert.ok(doc['x-permissions'].some((p: { code: string }) => p.code === 'file.bpm.read'));

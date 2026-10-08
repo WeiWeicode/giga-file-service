@@ -7,7 +7,7 @@
   我要依 BPM 單號查詢表單附件並下載,由 file-api 唯讀查 NaNa、向 5144 即時取檔
 
   背景:
-    假如 file-api 設定了 BPM_DB_*(NaNa 唯讀帳號 file_bpm_ro)、BPM_FILE_URL 與 BPM_FILE_API_KEY
+    假如 file-api 設定了 BPM 來源(各自的 NaNa 唯讀帳號 file_bpm_ro、5144 位址與金鑰)
     而且 使用者 S112009 擁有 file.bpm.read
 
   場景: 依單號完全比對
@@ -50,6 +50,22 @@
     假如 NoCmDocument 的 physicalName 為 "../../../etc/passwd"
     當 下載該附件
     那麼 回應 500 FILE_BPM_BAD_RECORD,不向 5144 發出請求
+
+  場景: 列出 BPM 來源;?env= 切換來源,未指定用預設來源
+    假如 file-api 設定了測試區 191(BPM_TEST_*)與正式區 190(BPM_PROD_*)
+    當 呼叫 GET /api/file/bpm/sources
+    那麼 items 有 test(測試區 10.10.130.191)與 prod(正式區 10.10.130.190),defaultEnv 為 test
+    當 呼叫 GET /api/file/bpm/forms/{單號}/attachments?env=prod
+    那麼 查的是正式區 NaNa,回應 env 為 prod
+    而且 正式區的 Doid 不帶 env=prod 查詢時回 404
+
+  場景: 下載紀錄含來源 env
+    當 下載 ?env=prod 的附件
+    那麼 file_access_log 的 detail 結尾為 " prod"
+
+  場景: 只設定其中一個來源時,另一個回 409
+    假如 只設定測試區
+    那麼 ?env=prod 回 409 FILE_BPM_DISABLED(訊息含「正式區」),sources 只有 test
 
   場景: 未設定 BPM 的環境
     假如 未設定 BPM_DB_HOST

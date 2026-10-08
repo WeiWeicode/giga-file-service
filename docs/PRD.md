@@ -55,7 +55,7 @@
 | D7 | 資料庫 | **沿用 Gateway 的 `giganexus_gw`**(正式)/ `giganexus_gw_test`(開發 + 測試)/ `giganexus_gw_poc_test`(整合測試),資料表放獨立 schema **`file_svc`**;只有少量資料表,不另建資料庫。帳號為本服務自有、只授權 `file_svc`,分 app / migrate;migration 紀錄表與 Gateway 分開([DATABASE.md](DATABASE.md) §0、§0.2) | ✅ 定案(2026-10-08 改;建 schema 與帳密由使用者執行) |
 | D8 | 舊系統 UUID | **新服務建對照表 `legacy_file_map`,不改舊資料表**([DATABASE.md](DATABASE.md) §3) | ✅ 採用;逐系統去留 F4 決策 |
 | D9 | 舊服務 | 照常運作、**程式碼一律不修改**(含 SMB `localdownload` 路徑問題,只記錄) | ✅ 定案:風險靠「新服務上線後舊服務下線」處理 |
-| D10 | BPM 附件怎麼接 | **file-api 直接查 NaNa(唯讀帳號)並向 5144 取檔、串流回傳**,不經 BPMbackend;5144 金鑰只放 file-api 機密設定;測試區 → 191、正式區 → 190([API.md](API.md) §3) | ✅ 採用 |
+| D10 | BPM 附件怎麼接 | **file-api 直接查 NaNa(唯讀帳號)並向 5144 取檔、串流回傳**,不經 BPMbackend;5144 金鑰只放 file-api 機密設定;來源以 `?env=` 選擇:測試區 191、正式區 190 可同時設定(2026-10-08 使用者決定測試區畫面也可查正式區 190,唯讀)([API.md](API.md) §3) | ✅ 採用 |
 | D11 | BPM 附件要不要複製一份 | **先不複製**(即時代理);若 5144 不穩或需長期保存,再改為「第一次下載時快取到 WSL 並寫 `legacy_file_map`」 | ✅ 採用 |
 | D12 | BPM 附件的權限 | 第一版:有 `file.bpm.read` 的人可依單號查詢 / 下載;「只能看自己是申請人或簽核人的表單」列為後續 | ✅ 定案 |
 | D13 | 舊檔怎麼進新服務 | **從 NAS 備份拉取**(SMB → `CP`、filebackend → `docker-folder` 各平台目錄),唯讀掛載、先乾跑對照 DB、再複製;不碰 122 主機與舊程式([MIGRATION.md](MIGRATION.md) §2) | ✅ 定案(方向);NAS 唯讀帳號與備份頻率待確認 |

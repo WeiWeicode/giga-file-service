@@ -13,7 +13,7 @@ import Fastify, { type FastifyInstance, type FastifyRequest } from 'fastify';
 import type { Config } from './config.js';
 import { AppError } from './errors.js';
 import type { BackupService } from './modules/backup/backup-service.js';
-import type { BpmService } from './modules/bpm/bpm-service.js';
+import type { BpmSources } from './modules/bpm/bpm-service.js';
 import type { Actor, FileService } from './modules/files/file-service.js';
 import { PathEscapeError } from './modules/storage/local-store.js';
 import { swaggerOptions } from './openapi.js';
@@ -38,8 +38,8 @@ export interface AppOptions {
   service: FileService;
   /** null = 此環境未設定 NAS 備份 */
   backup?: BackupService | null;
-  /** null = 此環境未設定 BPM 附件(F6) */
-  bpm?: BpmService | null;
+  /** null = 未設定任何 BPM 附件來源(F6) */
+  bpm?: BpmSources | null;
   /** 就緒檢查:SQL Server、檔案根目錄可用 */
   readiness?: () => Promise<{ ok: boolean; checks: Record<string, string> }>;
   deps?: () => Promise<DepStatus[]>;

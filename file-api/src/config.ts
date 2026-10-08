@@ -14,8 +14,12 @@
  *   BACKUP_INTERVAL_MINUTES  備份補傳間隔(預設 5)
  *   BACKUP_MAX_ATTEMPTS   失敗幾次改為 failed 並告警(預設 5)
  *   BACKUP_ALERT_USERS    選用:備份失敗告警收件人工號(逗號分隔;經 Gateway /api/notify/send,需 GW_API_KEY 有 notify.message.send)
- *   BPM_DB_*              選用:BPM NaNa 唯讀帳號(F6;db/dba/02-create-bpm-readonly.sql);未設定 BPM_DB_HOST 則 /bpm/* 回 409
- *   BPM_FILE_URL          BPM 取檔服務(:5144;測試區 191、正式區 190);BPM_FILE_API_KEY(_FILE)為其 X-API-Key,只放 file-api
+ *   BPM 附件(F6;選用,兩個來源各自設定,未設定任何來源則 /bpm/* 回 409):
+ *     BPM_TEST_*          BPM 測試區(191);未設定時沿用不帶前綴的 BPM_*(最初的設定名稱)
+ *     BPM_PROD_*          BPM 正式區(190)
+ *     各來源:{前綴}DB_HOST / DB_PORT / DB_NAME / DB_USER / DB_PASSWORD(_FILE)(NaNa 唯讀帳號 file_bpm_ro,db/dba/02-create-bpm-readonly.sql)、
+ *            {前綴}FILE_URL(取檔服務 :5144)、{前綴}FILE_API_KEY(_FILE)(其 X-API-Key,只放 file-api)
+ *     BPM_DEFAULT_ENV     未指定 ?env= 時的來源(test / prod;預設:GW_ENV=prod 用 prod,其他用 test,沒設定的就用另一個)
  */
 import { readFileSync } from 'node:fs';
 import { isGatewayPort, loadGatewayEnv, loadMonitorEnv, type GatewayEnv, type MonitorEnv } from '@giganexus/backend-sdk';
@@ -48,8 +52,40 @@ export interface Config {
   hostDiskPath: string | null;
   /** null = 不備份(dev 預設) */
   backup: { root: string; intervalMinutes: number; maxAttempts: number; alertUsers: string[] } | null;
-  /** null = 未設定 BPM 附件(F6) */
-  bpm: { sql: SqlConfig; fileUrl: string; apiKey: string } | null;
+  /** null = 未設定任何 BPM 附件來源(F6) */
+  bpm: { sources: BpmSourceConfig[]; defaultEnv: BpmEnv } | null;
+}
+
+export type BpmEnv = 'test' | 'prod';
+
+export interface BpmSourceConfig {
+  env: BpmEnv;
+  /** 顯示用:測試區 / 正式區 */
+  label: string;
+  sql: SqlConfig;
+  fileUrl: string;
+  apiKey: string;
+}
+
+const BPM_LABEL: Record<BpmEnv, string> = { test: '測試區', prod: '正式區' };
+
+/** 讀一個 BPM 來源;{prefix}DB_HOST 沒設定回 null */
+function bpmSource(env: NodeJS.ProcessEnv, code: BpmEnv, prefix: string, strictFile: boolean): BpmSourceConfig | null {
+  const host = env[`${prefix}DB_HOST`];
+  if (!host) return null;
+  return {
+    env: code,
+    label: BPM_LABEL[code],
+    sql: {
+      server: host,
+      port: Number(env[`${prefix}DB_PORT`] ?? 1433),
+      database: env[`${prefix}DB_NAME`] || 'NaNa',
+      user: required(`${prefix}DB_USER`, env[`${prefix}DB_USER`]),
+      password: required(`${prefix}DB_PASSWORD(或 ${prefix}DB_PASSWORD_FILE)`, secret(env, `${prefix}DB_PASSWORD`, strictFile)),
+    },
+    fileUrl: required(`${prefix}FILE_URL`, env[`${prefix}FILE_URL`]),
+    apiKey: required(`${prefix}FILE_API_KEY(或 ${prefix}FILE_API_KEY_FILE)`, secret(env, `${prefix}FILE_API_KEY`, strictFile)),
+  };
 }
 
 export class ConfigError extends Error {
@@ -113,19 +149,13 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env, cwd?: string): 
       }
     : null;
 
-  const bpm = env.BPM_DB_HOST
-    ? {
-        sql: {
-          server: env.BPM_DB_HOST,
-          port: Number(env.BPM_DB_PORT ?? 1433),
-          database: env.BPM_DB_NAME ?? 'NaNa',
-          user: required('BPM_DB_USER', env.BPM_DB_USER),
-          password: required('BPM_DB_PASSWORD(或 BPM_DB_PASSWORD_FILE)', secret(env, 'BPM_DB_PASSWORD', !isDev)),
-        },
-        fileUrl: required('BPM_FILE_URL', env.BPM_FILE_URL),
-        apiKey: required('BPM_FILE_API_KEY(或 BPM_FILE_API_KEY_FILE)', secret(env, 'BPM_FILE_API_KEY', !isDev)),
-      }
-    : null;
+  const bpmSources = [
+    bpmSource(env, 'test', 'BPM_TEST_', !isDev) ?? bpmSource(env, 'test', 'BPM_', !isDev),
+    bpmSource(env, 'prod', 'BPM_PROD_', !isDev),
+  ].filter((x): x is BpmSourceConfig => x !== null);
+  const wanted = env.BPM_DEFAULT_ENV || (gateway.gwEnv === 'prod' ? 'prod' : 'test');
+  if (wanted !== 'test' && wanted !== 'prod') throw new ConfigError(`BPM_DEFAULT_ENV 必須為 test 或 prod:${wanted}`);
+  const bpm = bpmSources.length ? { sources: bpmSources, defaultEnv: (bpmSources.find((x) => x.env === wanted) ?? bpmSources[0]!).env } : null;
 
   return {
     gateway,
