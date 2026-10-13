@@ -88,6 +88,17 @@ Claude 把搜尋、審查、資安檢查、除錯、測試、重構交給子代�
 
 ---
 
+## Git 分支與推送 — 必讀
+
+同 `../giga-api-gateway-bff/AGENT.md` §10.10(有出入時以該節為準);同仁操作步驟見工作區 `../BackToNas/同仁開發指南.md`。
+
+- 開發在工作分支(`feature/*`、`fix/*`、`docs/*`、`refactor/*`),從最新的 `origin/develop` 開。目前在 `develop` / `main` 而任務要改檔時,**先詢問使用者要開哪個分支**,不要直接提交。
+- 只推送工作分支;`develop`、`main` **只透過 GitLab Merge Request 由 Maintainer 合併**。AI 不得推送 `develop` / `main`(使用者在本次對話明確指示且為 Maintainer 除外),不得 force push 或改寫已推送的提交;推送被拒時不找繞過方式。
+- **本 repo 部署**:合併到 `develop` → CI 自動部署測試區(主機 2);`main` 尚未設定正式區部署。測試區共用,合併前提醒使用者在群組告知。
+- 提交前確認 diff 只含本次任務的檔案,不提交 `.env*` 與任何機密;提交訊息用 `<type>(<scope>): <中文說明>`。
+
+---
+
 ## 0. 專案定位(先讀)
 
 | 項目 | 內容 |
@@ -161,7 +172,7 @@ Claude 把搜尋、審查、資安檢查、除錯、測試、重構交給子代�
 | 日誌等級預設 | `debug` | `info` | `info` |
 
 - 部署區只有這三個值;不要新增 `staging`、`product` 之類的名稱。缺少必要設定時**啟動失敗**,不要加預設值繞過檢查。
-- 部署沿用 Gateway 的 GitLab 流程:`develop` → 主機 2 測試區,`main` → 主機 3 正式區,容器加入 Gateway Docker 網路(`../giga-api-gateway-bff/docs/DEPLOYMENT.md`、BACKEND-GUIDE §3.1)。**本 repo 目前尚未建立 GitLab remote。**
+- 部署沿用 Gateway 的 GitLab 流程:`develop` → 主機 2 測試區,`main` → 主機 3 正式區,容器加入 Gateway Docker 網路(`../giga-api-gateway-bff/docs/DEPLOYMENT.md`、BACKEND-GUIDE §3.1)。本 repo 的 GitLab CI 目前只有 `develop` → 測試區。
 - 上傳走 Nginx `auth_request` 直送 file-api、放寬到 31m(單檔 30 MB 加 multipart 表頭)(D4-B)需要改 Gateway 的 `nginx/`:**跨 repo 修改,先說明並取得同意**;BFF 全域 10 MB 限制不動。
 - 主機連線慣例(`ssh host1` / `host2`、WSL 內 Docker 指令)見工作區 `../AGENT.md` §5;需要 root 的指令請本人執行。
 
