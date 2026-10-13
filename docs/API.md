@@ -1,7 +1,7 @@
 # GigaNexus 附件服務 — API 規格(草案)
 
 > 本文件自 [PRD.md](PRD.md) §7 拆出(原 FILE-PLAN §8),為該主題的唯一維護來源;PRD 僅保留摘要與連結。
-> 對應 PRD 版本:**v0.8**(2026-10-08)。**§2 已實作(F1,`file-api/src/routes/files.ts`)**,以 file-api 的 OpenAPI(`/openapi.json`,自動註冊到 Gateway 路由表)為準;§3、§4 尚未實作。
+> 對應 PRD 版本:**v1.0**(2026-10-13)。**§2 已實作(F1,`file-api/src/routes/files.ts`)**,以 file-api 的 OpenAPI(`/openapi.json`,自動註冊到 Gateway 路由表)為準;**§3 已實作(F6,`src/routes/bpm.ts`)**;**§4 已實作(F7,`src/compat/`,2026-10-13;不進 OpenAPI,對外公開待 Gateway Nginx,[LEGACY-SWITCH-PLAN.md](LEGACY-SWITCH-PLAN.md) §3 批次 C)**。
 > 通用規範見 Gateway [BACKEND-GUIDE.md](../../giga-api-gateway-bff/docs/BACKEND-GUIDE.md) §4–§5、§7.5;本專案重點見 `AGENT.md` §8。
 
 ---
@@ -90,6 +90,8 @@
 | GeneralBackend `SMBbackend` | `http://10.10.130.122:5125` | `https://<gateway>/api/file/compat/smb` | BPM `bpmcomonent/SPfileUpload.vue` |
 | 166 PortalSolar | `http://10.10.130.166/PortalSolar/...`(靜態網址,無 JSON) | `https://<gateway>/api/file/compat/portal/{目錄}/{原檔名}` | ASP.NET 頁面連結(選用,切換時才需要) |
 
+**連線方式(2026-10-13 定案,[LEGACY-SWITCH-PLAN.md](LEGACY-SWITCH-PLAN.md) §5)**:舊前端改用相對路徑 `/file-compat/fb`、`/file-compat/smb`,由 `bpmcomonent` 自己的 Nginx 反向代理到 Gateway `/api/file/compat/*`(瀏覽器看到同一個來源,不需 CORS);Gateway Nginx 以內網白名單把 `/api/file/compat/` **直接轉給 file-api** 的 `/compat/*`(不經 BFF:BFF 對免登入路由不帶內部 Token,且全域上限 10 MB)。file-api 的相容路由不驗內部 Token、不出現在 OpenAPI、不註冊到 Gateway 路由表。
+
 ### 4.1 filebackend 相容(`/api/file/compat/fb/…`)
 
 共 7 支,回傳格式與 `sqlFileController.js` 一致。`FileUpload.vue` 實際使用其中 5 支(`/sql-files`、`/sql-upload`、`/sql-upload-multiple`、`/sql-download/:id`、`/sql-delete/:id`),`/sql-files-by-source`、`/sql-stats` 沒有已知呼叫者,列為選用:
@@ -125,14 +127,21 @@
 ### 4.4 相容層規則
 
 1. **只有這一組路由使用舊格式**:錯誤也回舊式 `{ success:false, message, error }`,不是 Gateway 的 `{ code, message, requestId }`;新 API(§2、§3)一律用 Gateway 格式。
-2. **對照舊欄位**:舊 `id`(整數)對照 `legacy_file_map.legacy_key`,新上傳的檔案以 UUID 字串當 `id`(舊前端把 `id` 當不透明值帶回 URL,不做數值運算);`/sql-download/:id`、`/sql-delete/:id` 同時接受舊整數 id 與 UUID。`path`、`filename` 在 SMB 沿用 `{目錄}/{uuid}{副檔名}` 格式。
+2. **對照舊欄位**:舊 `id`(整數)對照 `legacy_file_map.legacy_key`,新上傳的檔案以 UUID 字串當 `id`(舊前端把 `id` 當不透明值帶回 URL,不做數值運算);`/sql-download/:id`、`/sql-delete/:id` 同時接受舊整數 id 與 UUID。`path`、`filename` 在 SMB 沿用 `{目錄}/{uuid}{副檔名}` 格式。**實作**:查找鍵放在 `file_object.compat_key`(fb = 舊 id 或 UUID、smb = path),`compat_ns` 區分命名空間;`legacy_file_map` 記錄匯入來源([DATABASE.md](DATABASE.md) §1、§3)。舊表才有的欄位(description、version、舊 mimetype…)放 `legacy_meta`,原樣回傳。
 3. **欄位對應**:`SourcePlatform → source_system`、`SourceApplication → source_app`、`SourceNumber → ref_no`、`userNumber → uploaded_by`、`Effective → deleted_at IS NULL`、`filesize → size_bytes`、`mimetype → mime`。
-4. **身分**:舊前端(嵌在 BPM 表單內)沒有 Gateway 登入,和現況一樣只帶 `userNumber`。相容路由建議 `auth_mode = public`(需 IT 核准,PRD §11 #15)並由 Nginx **只放行內網來源**,等同現況的暴露程度;不得因此放寬新 API(§2)的驗證。
+4. **身分**:舊前端(嵌在 BPM 表單內)沒有 Gateway 登入,和現況一樣只帶 `userNumber`。**2026-10-13 定案**:Gateway Nginx 對 `/api/file/compat/` **只放行 `bpmcomonent` 所在主機與開發機**,直接轉給 file-api(PRD §11 #15),等同現況的暴露程度;file-api 的相容路由不驗內部 Token(只有這組路由例外),新 API(§2、§3)的驗證不受影響。`userNumber` 只記入 `uploaded_by` 與操作紀錄,不做資料範圍過濾(與舊服務相同)。
 5. **上傳進哪裡**:切換之後,舊前端的新上傳進新服務(UUID 檔),舊服務不再收到新檔。因此**某個舊服務的歷史檔案([MIGRATION.md](MIGRATION.md) §2)搬完並驗證後,才切換該服務的前端**。
 6. **大小**:相容上傳路由比照 D3 / D4 的 30 MB 直送路徑(舊 SMB 上限 100 MB,超過者先在畫面提示)。
 7. 資料庫連不上時舊 `filebackend` 會「退回只存檔案系統」(`databaseLogged:false`);相容層**不退回**,直接回 503,避免檔案沒記錄。
 8. **`/sql-files` 預設筆數**([LEGACY-INVENTORY.md](LEGACY-INVENTORY.md) §4.1 觀察 4):舊預設只回 50 筆,而 `FileUpload.vue` 在前端篩 `sourceNumber`,造成較舊單據查不到。相容層**沒帶 `limit` 時回傳全部有效檔(上限 1000)**,有帶 `limit` / `offset` 時照舊;這是**刻意與舊行為不同**的缺陷修正(PRD §11 #16)。前端若之後改用 `/sql-files-by-source` 則不受影響。
-9. **CORS**:舊前端是瀏覽器跨來源直接呼叫。改走 Gateway 後 CORS 由 Gateway 處理,需請 Gateway 負責人把 BPM 前端的來源加入白名單,並暴露 `Content-Disposition`(舊服務已設 `Access-Control-Expose-Headers`),否則下載的中文檔名會取不到(PRD §11 #16)。
+9. **CORS**:~~舊前端是瀏覽器跨來源直接呼叫,需 Gateway CORS 白名單~~ **2026-10-13 改為不需要**:`bpmcomonent` 的 Nginx 反向代理 `/file-compat/` 到 Gateway,瀏覽器看到同一個來源;file-api 不回 CORS 標頭(AGENT.md §8)。
 10. **平台白名單**:上傳時 `platform` 只接受 `MES`、`BPM`、`CRM`、`ERP`、`OTHER`(不分大小寫,轉大寫),其他值回 400 `{ success:false, message:"無效的平台名稱" }`,與舊服務一致;`platform` 值照呼叫端原樣存入([LEGACY-INVENTORY.md](LEGACY-INVENTORY.md) §4.2 觀察 6)。
 11. **`sourceApplication` 原樣存取**:不拆 `{應用}_{類別}`([LEGACY-INVENTORY.md](LEGACY-INVENTORY.md) §4.2 觀察 8);`/sql-files` 回傳的 `sourceApplication`、`platform`、`sourceNumber` 與寫入時完全相同,前端才能繼續用它們做篩選。
-12. **SMB 的 `path` 查找**([LEGACY-INVENTORY.md](LEGACY-INVENTORY.md) §4.3):舊前端以 `path` 下載與刪除。舊資料列的 `path` 有 `{uuid}{副檔名}` 與中文原檔名兩種,相容層以 `legacy_file_map`(`legacy_source = smbbackend`,`legacy_dir` + `legacy_name` 或 `legacy_key` = 舊 `id`)查找,**兩種都要查得到**;新上傳的檔案 `path` 為 `{uuid}{副檔名}`。因為新檔一律是 UUID,相容層不會再回 `409 FILE_EXISTS`(舊前端處理該情形的程式保留無害)。`sourcePlatform` 預設 `Web`、`sourceApplication` 預設 `SMB文件管理系統`、`version` 預設 `1.0`、`storageType` 預設 `Local`,與舊服務一致。
+12. **SMB 的 `path` 查找**([LEGACY-INVENTORY.md](LEGACY-INVENTORY.md) §4.3):舊前端以 `path` 下載與刪除。舊資料列的 `path` 有 `{uuid}{副檔名}` 與中文原檔名兩種,相容層以 `file_object.compat_key`(= 舊 `path`,匯入時寫入;`/api/db/files/:id` 的舊 `id` 經 `legacy_file_map.legacy_key`)查找,**兩種都要查得到**;新上傳的檔案 `path` 為 `{uuid}{副檔名}`。因為新檔一律是 UUID,相容層不會再回 `409 FILE_EXISTS`(舊前端處理該情形的程式保留無害)。`sourcePlatform` 預設 `Web`、`sourceApplication` 預設 `SMB文件管理系統`、`version` 預設 `1.0`、`storageType` 預設 `Local`,與舊服務一致。
+13. **上傳檢查**:相容層上傳與新 API 相同(單檔 30 MB、副檔名白名單 + 檔頭、執行檔一律拒絕;不合格整批拒絕並清掉暫存),錯誤回舊式 `{ success:false, message }`(415 / 413)。**與舊服務不同**:舊服務不檢查檔案類型。SMB 上傳的目錄參數 `path` 只接受一般相對目錄名,含 `..` 回 400(不重現 LEGACY-INVENTORY §2 的穿越問題)。
+14. **刪除**:一律軟刪除(只設 `deleted_at`,不刪實體檔與 NAS 備份;AGENT.md §7.3)。**與舊服務不同**:舊服務會刪實體檔。`/sql-delete/:id` 對已刪除的檔案照舊回成功;SMB `/api/db/delete` 找不到 path 也照舊回 `success:true`(`databaseRecord: "not_found"`)。
+15. **上傳時間**:舊表 `uploadDate` 是 `GETDATE()`(台灣時間),舊服務(Sequelize)把它當 UTC 輸出,所以舊前端收到「台灣時間的時分 + `Z`」。相容層**照舊輸出**(例台灣 16:30 → `2026-10-01T16:30:00.000Z`):`SPfileUpload.vue` 的 `formatDate` 會去掉 `Z` 再補 `+00:00`,改成 `+08:00` 會變成 Invalid Date(程式碼審查 2026-10-13)。資料庫 `created_at` 存正確的 UTC(匯入時以 `+08:00` 轉換)。
+16. **暫存清除**:相容層上傳一律設 `bound_at`(舊前端上傳時就帶單號,不走兩段式),沒有單號也不會被 24 小時暫存清除(§2)。
+17. **新 API 隔離**:相容層的檔案不出現在新 API(§2)的清單、資訊、下載、綁定、刪除;反之相容層也只看自己命名空間(`compat_ns`)的檔案。
+18. **下載的 Content-Type**:用標準 MIME(例 `application/pdf`),不是舊服務正規化後的 `application/docx` 之類;清單回傳的 `mimetype` 欄位照舊格式。
+19. **不提供的行為**:SMB `isDirectory=true`(刪除目錄)回 400;`/sql-upload` 一次多檔回 400(請用 `/sql-upload-multiple`);相容層上傳不會回 `409 FILE_EXISTS`。

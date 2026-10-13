@@ -6,7 +6,7 @@ import type { AccessLog, FileRecord, FileRepo, ListFilter, NewFile, Scope, Stora
 
 type Row = typeof fileObject.$inferSelect;
 
-const toRecord = (r: Row): FileRecord => ({
+export const toRecord = (r: Row): FileRecord => ({
   fileUuid: r.fileUuid,
   originalName: r.originalName,
   ext: r.ext,
@@ -29,7 +29,7 @@ const toRecord = (r: Row): FileRecord => ({
   backupAt: r.backupAt,
 });
 
-const logRow = (l: AccessLog) => ({
+export const logRow = (l: AccessLog) => ({
   fileUuid: l.fileUuid,
   action: l.action,
   userId: l.userId,
@@ -37,6 +37,13 @@ const logRow = (l: AccessLog) => ({
   requestId: l.requestId,
   detail: l.detail ?? null,
 });
+
+/**
+ * 新 API 只看自己的檔案:相容層(compat_ns 不為空)的上傳者是舊前端自填、未驗證的工號,
+ * 不可讓新 API 依 uploaded_by 把它當成本人的檔案,也不可經新 API 改動舊流程的附件(資安審查 2026-10-13)。
+ * 備份、還原、統計仍涵蓋全部檔案。
+ */
+const NEW_API = isNull(fileObject.compatNs);
 
 function scopeCondition(scope: Scope): SQL {
   const own = eq(fileObject.uploadedBy, scope.userId);
@@ -58,12 +65,12 @@ export class DrizzleFileRepo implements FileRepo {
     const rows = await this.db
       .select()
       .from(fileObject)
-      .where(and(eq(fileObject.fileUuid, fileUuid), isNull(fileObject.deletedAt)));
+      .where(and(eq(fileObject.fileUuid, fileUuid), isNull(fileObject.deletedAt), NEW_API));
     return rows[0] ? toRecord(rows[0]) : null;
   }
 
   async list(filter: ListFilter, scope: Scope): Promise<{ items: FileRecord[]; total: number }> {
-    const conds: SQL[] = [isNull(fileObject.deletedAt), scopeCondition(scope)];
+    const conds: SQL[] = [isNull(fileObject.deletedAt), NEW_API, scopeCondition(scope)];
     if (filter.sourceSystem) conds.push(eq(fileObject.sourceSystem, filter.sourceSystem));
     if (filter.refType) conds.push(eq(fileObject.refType, filter.refType));
     if (filter.refNo) conds.push(eq(fileObject.refNo, filter.refNo));
@@ -90,7 +97,7 @@ export class DrizzleFileRepo implements FileRepo {
         .update(fileObject)
         .set({ refType, refNo, boundAt: at })
         .output({ inserted: { fileUuid: fileObject.fileUuid } })
-        .where(and(inArray(fileObject.fileUuid, fileUuids), isNull(fileObject.deletedAt)));
+        .where(and(inArray(fileObject.fileUuid, fileUuids), isNull(fileObject.deletedAt), NEW_API));
       for (const r of updated) await tx.insert(fileAccessLog).values(logRow({ ...log, fileUuid: r.inserted.fileUuid }));
       return updated.length;
     });
@@ -102,7 +109,7 @@ export class DrizzleFileRepo implements FileRepo {
         .update(fileObject)
         .set({ deletedAt: at, deletedBy: by })
         .output({ inserted: { fileUuid: fileObject.fileUuid } })
-        .where(and(eq(fileObject.fileUuid, fileUuid), isNull(fileObject.deletedAt)));
+        .where(and(eq(fileObject.fileUuid, fileUuid), isNull(fileObject.deletedAt), NEW_API));
       const changed = updated.length > 0;
       if (changed && log) await tx.insert(fileAccessLog).values(logRow(log));
       return changed;
@@ -117,7 +124,7 @@ export class DrizzleFileRepo implements FileRepo {
     const rows = await this.db
       .select()
       .from(fileObject)
-      .where(and(isNull(fileObject.refNo), isNull(fileObject.deletedAt), lt(fileObject.createdAt, before)))
+      .where(and(isNull(fileObject.refNo), isNull(fileObject.boundAt), isNull(fileObject.deletedAt), NEW_API, lt(fileObject.createdAt, before)))
       .orderBy(fileObject.id)
       .offset(0)
       .fetch(limit);

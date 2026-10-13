@@ -23,11 +23,16 @@ import {
   type StorageStats,
 } from '../src/modules/files/types.js';
 import { BackupService, type BackupAlert } from '../src/modules/backup/backup-service.js';
+import { CompatService } from '../src/modules/compat/compat-service.js';
+import type { CompatListFilter, CompatNs, CompatRecord, CompatRepo, LegacyMapEntry, NewCompatFile } from '../src/modules/compat/types.js';
 import { BpmService, BpmSources } from '../src/modules/bpm/bpm-service.js';
 import { BpmDocServer } from '../src/modules/bpm/doc-server.js';
 import type { BpmRepo } from '../src/modules/bpm/types.js';
 import { BackupStore, MARKER } from '../src/modules/storage/backup-store.js';
 import { LocalStore } from '../src/modules/storage/local-store.js';
+
+/** 相容層的檔案(compat_ns 不為空):新 API 看不到(drizzle-repo.ts NEW_API) */
+const isCompat = (f: FileRecord) => !!(f as { compatNs?: string }).compatNs;
 
 export class MemoryFileRepo implements FileRepo {
   readonly files: FileRecord[] = [];
@@ -38,11 +43,11 @@ export class MemoryFileRepo implements FileRepo {
     this.logs.push(...logs);
   }
   async findActive(fileUuid: string): Promise<FileRecord | null> {
-    return this.files.find((f) => f.fileUuid === fileUuid && !f.deletedAt) ?? null;
+    return this.files.find((f) => f.fileUuid === fileUuid && !f.deletedAt && !isCompat(f)) ?? null;
   }
   async list(filter: ListFilter, scope: Scope) {
     const rows = this.files
-      .filter((f) => !f.deletedAt && inScope(f, scope))
+      .filter((f) => !f.deletedAt && !isCompat(f) && inScope(f, scope))
       .filter((f) => !filter.sourceSystem || f.sourceSystem === filter.sourceSystem)
       .filter((f) => !filter.refType || f.refType === filter.refType)
       .filter((f) => !filter.refNo || f.refNo === filter.refNo)
@@ -55,7 +60,7 @@ export class MemoryFileRepo implements FileRepo {
   async bind(fileUuids: string[], refType: string | null, refNo: string, at: Date, log: Omit<AccessLog, 'fileUuid'>): Promise<number> {
     let n = 0;
     for (const f of this.files)
-      if (fileUuids.includes(f.fileUuid) && !f.deletedAt) {
+      if (fileUuids.includes(f.fileUuid) && !f.deletedAt && !isCompat(f)) {
         Object.assign(f, { refType, refNo, boundAt: at });
         this.logs.push({ ...log, fileUuid: f.fileUuid });
         n++;
@@ -63,7 +68,7 @@ export class MemoryFileRepo implements FileRepo {
     return n;
   }
   async softDelete(fileUuid: string, by: string, at: Date, log: AccessLog | null): Promise<boolean> {
-    const f = this.files.find((x) => x.fileUuid === fileUuid && !x.deletedAt);
+    const f = this.files.find((x) => x.fileUuid === fileUuid && !x.deletedAt && !isCompat(x));
     if (!f) return false;
     Object.assign(f, { deletedAt: at, deletedBy: by });
     if (log) this.logs.push(log);
@@ -73,7 +78,7 @@ export class MemoryFileRepo implements FileRepo {
     this.logs.push(entry);
   }
   async expiredTemps(before: Date, limit: number): Promise<FileRecord[]> {
-    return this.files.filter((f) => !f.refNo && !f.deletedAt && f.createdAt < before).slice(0, limit);
+    return this.files.filter((f) => !f.refNo && !f.boundAt && !f.deletedAt && !isCompat(f) && f.createdAt < before).slice(0, limit);
   }
   readonly attempts = new Map<string, number>();
   async pendingBackups(limit: number): Promise<FileRecord[]> {
@@ -120,6 +125,64 @@ export class MemoryFileRepo implements FileRepo {
         .filter((f) => f.backupStatus === 'failed')
         .map((f) => ({ fileUuid: f.fileUuid, originalName: f.originalName, createdAt: f.createdAt })),
     };
+  }
+}
+
+/** 相容層的記憶體 repo:與 MemoryFileRepo 共用 files / logs(同一張 file_object),另記 legacy_file_map */
+export class MemoryCompatRepo implements CompatRepo {
+  readonly maps: LegacyMapEntry[] = [];
+  constructor(readonly files: MemoryFileRepo) {}
+
+  private get rows(): CompatRecord[] {
+    return this.files.files.filter((f): f is CompatRecord => 'compatNs' in f && !!(f as CompatRecord).compatNs);
+  }
+  async insert(files: NewCompatFile[], logs: AccessLog[]): Promise<void> {
+    await this.files.insertMany(files, logs);
+  }
+  async insertLegacy(file: NewCompatFile, map: LegacyMapEntry): Promise<void> {
+    if (this.maps.some((m) => m.legacySource === map.legacySource && m.legacyKey === map.legacyKey)) throw new Error('legacy_key 重複');
+    await this.files.insertMany([file], [{ fileUuid: file.fileUuid, action: 'upload', userId: 'system:legacy-import', ip: null, requestId: null }]);
+    this.maps.push(map);
+  }
+  async findByKey(ns: CompatNs, key: string, includeDeleted = false) {
+    return this.rows.filter((f) => f.compatNs === ns && f.compatKey === key && (includeDeleted || !f.deletedAt)).at(-1) ?? null;
+  }
+  async findByUuid(ns: CompatNs, fileUuid: string) {
+    return this.rows.find((f) => f.compatNs === ns && f.fileUuid === fileUuid) ?? null;
+  }
+  async findByLegacyId(ns: CompatNs, legacyId: string) {
+    const src = ns === 'fb' ? 'filebackend' : 'smbbackend';
+    const m = this.maps.find((x) => x.legacySource === src && x.legacyKey === legacyId);
+    return m ? (this.rows.find((f) => f.fileUuid === m.fileUuid && f.compatNs === ns) ?? null) : null;
+  }
+  async list(q: CompatListFilter) {
+    const rows = this.rows
+      .filter((f) => f.compatNs === q.ns)
+      .filter((f) => q.effective === undefined || (q.effective ? !f.deletedAt : !!f.deletedAt))
+      .filter((f) => q.sourceSystem === undefined || f.sourceSystem === q.sourceSystem)
+      .filter((f) => q.refNo === undefined || f.refNo === q.refNo)
+      .filter((f) => !q.createdFrom || f.createdAt >= q.createdFrom)
+      .filter((f) => !q.createdTo || f.createdAt <= q.createdTo)
+      .reverse()
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    return { items: rows.slice(q.offset, q.offset + q.limit), total: rows.length };
+  }
+  async importedKeys(source: LegacyMapEntry['legacySource']) {
+    return new Map(
+      this.maps
+        .filter((m) => m.legacySource === source)
+        .map((m) => [m.legacyKey, { fileUuid: m.fileUuid, deleted: !!this.files.files.find((f) => f.fileUuid === m.fileUuid)?.deletedAt }]),
+    );
+  }
+  async softDelete(fileUuid: string, by: string, at: Date, log: AccessLog | null) {
+    const f = this.rows.find((x) => x.fileUuid === fileUuid && !x.deletedAt);
+    if (!f) return false;
+    Object.assign(f, { deletedAt: at, deletedBy: by });
+    if (log) await this.files.log(log);
+    return true;
+  }
+  async log(entry: AccessLog) {
+    await this.files.log(entry);
   }
 }
 
@@ -170,6 +233,8 @@ export interface TestApp {
   root: string;
   clock: { now: Date };
   store: LocalStore;
+  /** opts.compat 為 true 時 repo 是 MemoryCompatRepo;傳入 CompatRepo(整合測試)時為該 repo */
+  compat: { service: CompatService; repo: MemoryCompatRepo } | null;
   /** 有 opts.backup 時才有 */
   backup: { service: BackupService; nas: BackupStore; root: string; alerts: Parameters<BackupAlert>[0][] } | null;
 }
@@ -191,7 +256,7 @@ export interface TestBpmOptions {
 
 export async function buildTestApp(
   jwks: Jwks,
-  opts: { repo?: FileRepo; config?: Partial<Config>; backup?: TestBackupOptions; bpm?: TestBpmOptions | TestBpmOptions[] } = {},
+  opts: { repo?: FileRepo; config?: Partial<Config>; backup?: TestBackupOptions; bpm?: TestBpmOptions | TestBpmOptions[]; compat?: boolean | CompatRepo } = {},
 ): Promise<TestApp> {
   const root = mkdtempSync(path.join(tmpdir(), 'file-api-'));
   const config = { ...testConfig(jwks.url, root), ...opts.config };
@@ -233,8 +298,11 @@ export async function buildTestApp(
         bpmOpts[0]!.env ?? 'test',
       )
     : null;
-  const app = await buildApp({ config, service, backup: backup?.service ?? null, bpm });
-  return { app, repo, service, root, clock, store, backup };
+  const compatRepo: CompatRepo | null =
+    opts.compat === true ? (repo instanceof MemoryFileRepo ? new MemoryCompatRepo(repo) : null) : opts.compat ? opts.compat : null;
+  const compat = compatRepo ? { repo: compatRepo as MemoryCompatRepo, service: new CompatService({ repo: compatRepo, store, now: () => clock.now }) } : null;
+  const app = await buildApp({ config, service, backup: backup?.service ?? null, bpm, compat: compat?.service ?? null });
+  return { app, repo, service, root, clock, store, backup, compat };
 }
 
 /** 使用者身分(碩禾,擁有權限由 Gateway 檢查,file-api 只看身分與資料範圍) */
@@ -246,11 +314,15 @@ export interface Part {
   content: Buffer | string;
 }
 
-/** multipart/form-data 請求內容(以 Fetch API 的 FormData 產生 boundary 與編碼) */
-export async function multipart(files: Part[], fields: Record<string, string> = {}): Promise<{ payload: Buffer; headers: Record<string, string> }> {
+/** multipart/form-data 請求內容(以 Fetch API 的 FormData 產生 boundary 與編碼);fileField 預設 file */
+export async function multipart(
+  files: Part[],
+  fields: Record<string, string> = {},
+  fileField = 'file',
+): Promise<{ payload: Buffer; headers: Record<string, string> }> {
   const fd = new FormData();
   for (const [k, v] of Object.entries(fields)) fd.append(k, v);
-  for (const f of files) fd.append('file', new Blob([typeof f.content === 'string' ? Buffer.from(f.content) : f.content]), f.name);
+  for (const f of files) fd.append(fileField, new Blob([typeof f.content === 'string' ? Buffer.from(f.content) : f.content]), f.name);
   const res = new Response(fd);
   return { payload: Buffer.from(await res.arrayBuffer()), headers: { 'content-type': res.headers.get('content-type')! } };
 }

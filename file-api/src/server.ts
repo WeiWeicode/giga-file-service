@@ -13,6 +13,8 @@ import { gatewayAlert } from './modules/backup/gateway-alert.js';
 import { BpmService, BpmSources } from './modules/bpm/bpm-service.js';
 import { BpmDocServer } from './modules/bpm/doc-server.js';
 import { NanaBpmRepo } from './modules/bpm/nana-repo.js';
+import { CompatService } from './modules/compat/compat-service.js';
+import { DrizzleCompatRepo } from './modules/compat/drizzle-repo.js';
 import { FileService } from './modules/files/file-service.js';
 import { BackupStore } from './modules/storage/backup-store.js';
 import { LocalStore } from './modules/storage/local-store.js';
@@ -21,7 +23,8 @@ const config = loadConfig();
 const pool = await openPool(config.sql, { appName: 'giganexus-file-api' });
 const store = new LocalStore(config.fileRoot, config.hostDiskPath);
 await store.init();
-const repo = new DrizzleFileRepo(createDb(pool, config.gateway.gwEnv !== 'prod'));
+const db = createDb(pool, config.gateway.gwEnv !== 'prod');
+const repo = new DrizzleFileRepo(db);
 const nas = config.backup ? new BackupStore(config.backup.root) : null;
 const service = new FileService({
   repo,
@@ -77,11 +80,15 @@ const bpm = config.bpm
     )
   : null;
 
+// 舊格式相容層(API.md §4):對外由 Gateway Nginx 以內網白名單直接轉入(LEGACY-SWITCH-PLAN.md §5 Q1、Q2)
+const compat = new CompatService({ repo: new DrizzleCompatRepo(db), store, allowedExts: config.allowedExts });
+
 const app = await buildApp({
   config,
   service,
   backup,
   bpm,
+  compat,
   readiness: async () => {
     const c = await checks();
     return { ok: c.every((x) => x.ok), checks: Object.fromEntries(c.map((x) => [x.name, x.ok ? 'ok' : `error: ${x.message}`])) };

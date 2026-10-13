@@ -73,7 +73,7 @@ export interface FileRepo {
   /** 軟刪除;回傳是否有更新 */
   softDelete(fileUuid: string, by: string, at: Date, log: AccessLog | null): Promise<boolean>;
   log(entry: AccessLog): Promise<void>;
-  /** 建立早於 before、仍未綁定且未刪除的暫存檔 */
+  /** 建立早於 before、仍未綁定(ref_no、bound_at 皆空)且未刪除的暫存檔;相容層上傳一律有 bound_at,不會被清除 */
   expiredTemps(before: Date, limit: number): Promise<FileRecord[]>;
   stats(): Promise<StorageStats>;
   /** 待備份(pending)且未刪除,依建立順序 */

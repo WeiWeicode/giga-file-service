@@ -116,6 +116,21 @@ export function required<T>(name: string, v: T | undefined | null | ''): T {
 
 const flag = (v: string | undefined) => v === '1' || v === 'true';
 
+/**
+ * F4 匯入(npm run legacy:import)用的 WebAppDb 唯讀連線(LEGACY-SWITCH-PLAN.md §3 A3);服務本身不需要,不放進 Config。
+ *   WEBAPPDB_HOST / PORT / NAME(預設 WebAppDb)/ USER(預設 file_legacy_ro)/ PASSWORD(_FILE;test / prod 只接受 _FILE)
+ */
+export function loadWebAppDbConfig(env: NodeJS.ProcessEnv = process.env): SqlConfig {
+  const strictFile = (env.GW_ENV ?? 'dev') !== 'dev';
+  return {
+    server: required('WEBAPPDB_HOST', env.WEBAPPDB_HOST),
+    port: Number(env.WEBAPPDB_PORT ?? 1433),
+    database: env.WEBAPPDB_NAME || 'WebAppDb',
+    user: env.WEBAPPDB_USER || 'file_legacy_ro',
+    password: required('WEBAPPDB_PASSWORD(或 WEBAPPDB_PASSWORD_FILE)', secret(env, 'WEBAPPDB_PASSWORD', strictFile)),
+  };
+}
+
 export function loadConfig(env: NodeJS.ProcessEnv = process.env, cwd?: string): Config {
   const gateway = loadGatewayEnv(env, cwd);
   const isDev = gateway.gwEnv === 'dev';

@@ -11,6 +11,11 @@
 # BPM 附件(F6):測試區 191(BPM_TEST_*)、正式區 190(BPM_PROD_*),file.env 有 {前綴}DB_HOST 才啟用該來源;
 #   機密在 FILE_SECRETS_DIR/bpm/{test,prod}_*(host2-set-bpm-secrets.sh test|prod 產生),以目錄唯讀掛載:
 #   未執行腳本前目錄為空、HOST 空白,該來源回 409,不影響部署
+# 舊檔匯入(F4;LEGACY-SWITCH-PLAN.md §3):另一個一次性服務 legacy-import(profile,不長駐),只有它掛 NAS 與 WebAppDb 密碼;
+#   長駐的 file-api 不掛(資安審查 2026-10-13:縮小免 Token 相容路由所在容器的可讀範圍)
+#   docker compose --env-file … -f file-api/deploy/docker-compose.yml --profile legacy-import run --rm legacy-import --source fb [--apply]
+#   NAS docker-folder 整個以唯讀掛到 /data/legacy(不個別掛子目錄:不存在時 Docker 會在 NAS 上建立目錄);
+#   WebAppDb 唯讀帳號密碼在 FILE_SECRETS_DIR/legacy/webappdb_password(host2-set-legacy-secrets.sh 產生),file.env 要有 WEBAPPDB_HOST
 # 機密(FILE_SECRETS_DIR,uid 1000 可讀;file-api/deploy/host2-set-secrets.sh 產生):
 #   file_db_password(file_app)、gw_api_key(Gateway CLI client:create --code file-api)、monitor_api_key(giga-observe 服務 file-api)
 # migration 由開發者電腦 npm run db:migrate 套用(file_migrate 不放測試區主機)
@@ -72,6 +77,37 @@ services:
     networks:
       gateway:
         aliases: [file-api]
+
+  legacy-import:
+    profiles: [legacy-import]
+    image: giganexus/file-api:${IMAGE_TAG:-dev}
+    restart: 'no'
+    entrypoint: ['node', 'dist/src/cli/legacy-import.js']
+    working_dir: /app
+    environment:
+      GW_ENV: ${GW_ENV}
+      SERVICE_CODE: file-api
+      GW_BASE_URL: ${GW_BASE_URL:?GW_BASE_URL 必須設定}
+      MONITOR_ENABLED: 'false'
+      FILE_ROOT: /data/files
+      FILE_DB_HOST: ${FILE_DB_HOST:?FILE_DB_HOST 必須設定}
+      FILE_DB_PORT: ${FILE_DB_PORT:-1433}
+      FILE_DB_NAME: ${FILE_DB_NAME:?FILE_DB_NAME 必須設定}
+      FILE_DB_USER: ${FILE_DB_USER:?FILE_DB_USER 必須設定}
+      FILE_DB_PASSWORD_FILE: /run/secrets/file_db_password
+      LEGACY_NAS_ROOT: /data/legacy
+      WEBAPPDB_HOST: ${WEBAPPDB_HOST:-}
+      WEBAPPDB_NAME: ${WEBAPPDB_NAME:-WebAppDb}
+      WEBAPPDB_USER: ${WEBAPPDB_USER:-file_legacy_ro}
+      WEBAPPDB_PASSWORD_FILE: /run/secrets/legacy/webappdb_password
+    secrets: [file_db_password]
+    volumes:
+      - ${FILE_HOST_ROOT:-/srv/giga-files/test}:/data/files
+      - ${FILE_SECRETS_DIR}/legacy:/run/secrets/legacy:ro
+      - ${FILE_LEGACY_HOST_ROOT:-/mnt/nas-docker}:/data/legacy:ro
+      # 報表(含單號與檔名)寫在主機,不進映像
+      - ${FILE_LEGACY_REPORT_DIR:-/srv/giganexus/file-legacy-import}:/app/data/legacy-import
+    networks: [gateway]
 
 secrets:
   gw_api_key:

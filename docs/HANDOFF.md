@@ -19,6 +19,14 @@
 | Gateway 修正 | 轉給上游的 `X-Forwarded-For` 順序相反,經 BFF 的操作紀錄 ip 都是 Nginx 容器 `172.19.0.6` → 改為用戶端在前 | Gateway eb03b79 | BFF 227 通過;部署後紀錄 ip 為 `10.10.112.13` |
 | F0 | NAS(filebackend 110、CP 101,含 SHA-256)、166(55,169 檔)唯讀盤點 | — | LEGACY-INVENTORY §6 |
 
+## 0. 2026-10-13 進行中:filebackend / SMBbackend 接手(F4 + F7)
+
+- 計畫與決定:[LEGACY-SWITCH-PLAN.md](LEGACY-SWITCH-PLAN.md)(§3.1 進度、§3.2 其他 repo 要改的、§3.3 審查結果)。
+- 已完成(develop 本機提交,**尚未推送**):相容層 `file-api/src/compat/`、匯入 CLI `npm run legacy:import`、migration `20261013022248_compat`、`db/dba/03-create-webappdb-readonly.sql`、`deploy/host2-set-legacy-secrets.sh`、Compose profile `legacy-import`。
+- **推送前必須先套 migration 到 `giganexus_gw_test`**(新程式會讀 `compat_*` 欄位,未套用時既有 API 也會失敗):開發機 `npm run db:migrate`,再推 develop。
+- 使用者待辦:220 執行 03 SQL(並確認 WebAppDb `public` / `guest` 無額外權限)→ 開發機 `.env` 加 `WEBAPPDB_*` → 主機 2 `host2-set-legacy-secrets.sh`;之後 Claude 跑乾跑報表(批次 B)。
+- 批次 C 需改 Gateway Nginx 與 bpmcomonent,動手前再確認。
+
 ## 2. 下一步
 
 ### 2.1 測試區現況(維運)

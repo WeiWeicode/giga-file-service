@@ -21,9 +21,9 @@
 | F2 | NAS 備份 | W11-4 | ✅ 完成(2026-10-08 測試區驗收:5 分鐘內備份且 SHA 相符、NAS 不可用時跳過並自動補、restore CLI 還原;告警 Email 先不設定) | F1 |
 | F6 | BPM 附件(唯讀) | W11-5 | ✅ 完成(2026-10-08 測試區驗收:測試區 191 / 正式區 190 兩個來源 `?env=`,查詢、下載中文檔名、預覽、`bpm_download` 紀錄;5144 沿用既有金鑰) | F1 |
 | F3 | GigaItApp 檔案管理頁 | W11-6 | ✅ 完成(檔案清單、BPM 附件〔191 / 190 切換〕、儲存與備份〔含重試〕;**「舊系統」Tab 移到 F4**,需 F4 的對照資料) | F1 |
-| F7 | 舊格式相容層 | W11-7 | 未開始 | F1 |
+| F7 | 舊格式相容層 | W11-7 | 🔶 進行中(2026-10-13:`src/compat/` fb 7 支、smb 6 支已實作,單元 / SQL Server 2012 整合測試通過;待 Gateway Nginx 公開與舊前端對測,[LEGACY-SWITCH-PLAN.md](LEGACY-SWITCH-PLAN.md) 批次 C) | F1 |
 | ◆ | 測試區附件服務可用 | W11-M | ✅ 2026-10-08 | F2、F3、F6 |
-| F4 | 舊系統對照與同步 | W11-8 | 未開始 | F0、◆ |
+| F4 | 舊系統對照與同步 | W11-8 | 🔶 進行中(2026-10-13:filebackend / SMBbackend 匯入工具 `npm run legacy:import` 完成;待 `WebAppDb` 唯讀帳號後測試區乾跑,批次 B;166 同步另案) | F0、◆ |
 | F5 | 搬遷(視 F4 決策) | W11-9 | 暫停(待 F4 決策) | F4 |
 
 ## 3. 前置工作
@@ -71,10 +71,14 @@
 
 ### F7 舊格式相容層
 
+- 執行計畫:[LEGACY-SWITCH-PLAN.md](LEGACY-SWITCH-PLAN.md)(filebackend / SMBbackend,含決定與批次)。
+
 - 交付物:[API.md](API.md) §4:`fb`(7 支)、`smb`(6 支)路由與舊 JSON 一致;`portal` 靜態網址相容視需要。
 - 驗收:以舊服務回應當 golden 樣本比對欄位;以舊前端 `FileUpload.vue` / `SPfileUpload.vue` 在測試區對測;規則 5(歷史檔案已搬完)滿足後才切換舊前端。
 
 ### F4 舊系統對照與同步
+
+- filebackend / SMBbackend 的執行計畫:[LEGACY-SWITCH-PLAN.md](LEGACY-SWITCH-PLAN.md);166 同步仍依 MIGRATION §3,範圍待 PRD §11 #12、#13。
 
 - 交付物:`legacy_file_map` 產生、NAS 備份拉取([MIGRATION.md](MIGRATION.md) §2)、166 同步工作(§3:掃描 → NAS 鏡像 → UUID → WSL → 每日增量 → 對照報表)、「舊系統」Tab 唯讀查詢;與需求方逐系統決策。
 - 驗收:乾跑報表(孤兒、斷鏈、重複)經需求方確認;實際同步後檔案數 / 容量 / SHA-256 對得上;重跑不重複產生資料。

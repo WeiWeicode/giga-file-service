@@ -24,6 +24,7 @@
     "openapi": "tsx src/print-openapi.ts",
     "inventory": "tsx --env-file-if-exists=.env src/cli/inventory.ts",
     "restore": "tsx --env-file-if-exists=.env src/cli/restore.ts",
+    "legacy:import": "tsx --env-file-if-exists=.env src/cli/legacy-import.ts",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },

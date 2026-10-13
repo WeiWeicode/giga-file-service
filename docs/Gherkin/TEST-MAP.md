@@ -2,7 +2,7 @@
 
 > 比照 Gateway:Gherkin 維持驗收規格文件,自動化以 Node 內建測試(`node:test` + tsx)執行,本表記錄每個場景由哪個測試涵蓋。
 > 「未自動化」註明原因;新增場景或測試時同步更新本表(IMPL-PLAN §6 完成定義)。
-> 縮寫(皆在 `file-api/`):`F` = `test/files.test.ts`;`U` = `test/units.test.ts`;`I` = `test/inventory.test.ts`;`INT` = `test/int/files.int.test.ts`(SQL Server 2012,`npm run test:int`);`B` = `test/backup.test.ts`;`P` = `test/bpm.test.ts`(NaNa 記憶體 repo + 模擬 5144);`LB` = `test/legacy/bpm.legacy.test.ts`(真實 191 NaNa / 5144 唯讀,`npm run test:legacy`);`L` = `test/legacy/shares.legacy.test.ts`(真實 NAS / 166 唯讀,`npm run test:legacy`)。場景名稱與測試名稱相同。
+> 縮寫(皆在 `file-api/`):`F` = `test/files.test.ts`;`U` = `test/units.test.ts`;`I` = `test/inventory.test.ts`;`INT` = `test/int/files.int.test.ts`(SQL Server 2012,`npm run test:int`);`B` = `test/backup.test.ts`;`P` = `test/bpm.test.ts`(NaNa 記憶體 repo + 模擬 5144);`LB` = `test/legacy/bpm.legacy.test.ts`(真實 191 NaNa / 5144 唯讀,`npm run test:legacy`);`L` = `test/legacy/shares.legacy.test.ts`(真實 NAS / 166 唯讀,`npm run test:legacy`);`C` = `test/compat.test.ts`;`LI` = `test/legacy-import.test.ts`(暫存目錄模擬 NAS、假資料列模擬 WebAppDb)。場景名稱與測試名稱相同。
 
 ## files/upload-download.feature(F1)
 
@@ -84,3 +84,24 @@
 | 個別檔案讀不到屬性時列入錯誤清單 | I |
 | 盤點絕不修改來源 | I(spy:只呼叫 readdir / stat / openRead,前後快照相同);L(真實來源含 SHA-256 掃描前後快照相同) |
 | 盤點報告寫到本機輸出目錄 | 未自動化(CLI `npm run inventory` 手動執行;輸出目錄位於來源之下時拒絕,程式審查) |
+
+## compat/compat.feature(F7)
+
+| 場景 | 測試 |
+| --- | --- |
+| filebackend 單檔上傳回應與舊服務相同 | C(/sql-upload);INT(相容層 API 經 SQL Server) |
+| 無效的平台名稱與執行檔回舊式錯誤 | C |
+| /sql-files 沒帶 limit 回全部有效檔 | C |
+| 舊整數 id 與新 UUID 都能下載與刪除 | C(/sql-download、/sql-delete);INT |
+| SMB 舊中文原檔名 path 與新 UUID path 都查得到 | C(/api/download、/api/db/search);INT(DrizzleCompatRepo) |
+| SMB 上傳的目錄參數不可穿越 | C |
+| 相容層上傳不會被暫存清除 | C |
+
+## legacy/import.feature(F4)
+
+| 場景 | 測試 |
+| --- | --- |
+| 乾跑只產生報表 | LI |
+| 加 --apply 匯入並驗證 SHA-256,可重跑 | LI;INT(insertLegacy 同一交易、重複擋下) |
+| 切換前舊服務刪除的檔案在新服務軟刪除 | LI |
+| NAS 無法存取時停止 | LI |

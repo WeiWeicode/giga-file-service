@@ -1,7 +1,7 @@
 # GigaNexus 附件服務 — 資料庫設計(SQL Server,草案)
 
 > 本文件自 [PRD.md](PRD.md) §7 拆出(原 FILE-PLAN §7),為該主題的唯一維護來源;PRD 僅保留摘要與連結。
-> 對應 PRD 版本:**v0.8**(2026-10-08)。**尚未建立 migration**。資料表放在 Gateway 的 `giganexus_gw`、獨立 schema **`file_svc`**(D7);存取方式 **Drizzle ORM**(D17,§0.1)。
+> 對應 PRD 版本:**v1.0**(2026-10-13)。migration:`20261008032152_init`(三張表)、`20261013022248_compat`(`file_object` 加相容層欄位)。資料表放在 Gateway 的 `giganexus_gw`、獨立 schema **`file_svc`**(D7);存取方式 **Drizzle ORM**(D17,§0.1)。
 
 ---
 
@@ -62,13 +62,17 @@ file_object (
   deleted_by      NVARCHAR(20),
   backup_status   NVARCHAR(10) NOT NULL,        -- pending / done / failed(STORAGE §2)
   backup_at       DATETIME2,
-  backup_attempts INT NOT NULL DEFAULT 0
+  backup_attempts INT NOT NULL DEFAULT 0,
+  compat_ns       VARCHAR(10),                  -- 舊格式相容層命名空間 fb / smb;NULL = 新 API 的檔案(API §4.4 規則 2)
+  compat_key      NVARCHAR(300),                -- 相容層查找鍵:fb = 舊整數 id 或新檔 UUID;smb = 舊 path(UUID 檔名或中文原檔名)
+  legacy_meta     NVARCHAR(MAX)                 -- 舊表才有的欄位(description、version、舊 mimetype…)JSON 字串,只在應用層解析(2012 無 JSON 函式)
 )
+-- 索引:ix_file_object_compat (compat_ns, compat_key)、ix_file_object_compat_ref (compat_ns, ref_no)
 ```
 
 - 每個被同步的舊檔也會有一筆 `file_object`(`source_system` 標示舊系統),讓新舊檔案都用同一支 `/api/file/files/:uuid/content` 下載。
 - 暫存檔(`ref_no IS NULL`)超過 24 小時未綁定由排程清除([API.md](API.md) §2)。
-- 相容層欄位對應見 [API.md](API.md) §4.4 規則 3。
+- 相容層欄位對應見 [API.md](API.md) §4.4 規則 3。相容層的檔案(經相容層上傳、或 F4 從 filebackend / SMBbackend 匯入)也存在本表,以 `compat_ns` 區分;相容層清單只回自己命名空間的檔案。相容層上傳一律有 `bound_at`,不會被暫存清除。**新 API(API §2)的查詢、綁定、刪除只看 `compat_ns IS NULL`**:相容層的上傳者是舊前端自填、未驗證的工號,不可被當成本人的檔案(資安審查 2026-10-13);備份、還原、統計涵蓋全部。
 
 ## 2. `file_svc.file_access_log` 操作紀錄
 
