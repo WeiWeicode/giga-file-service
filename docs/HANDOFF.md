@@ -22,9 +22,9 @@
 ## 0. 2026-10-13 進行中:filebackend / SMBbackend 接手(F4 + F7)
 
 - 計畫與決定:[LEGACY-SWITCH-PLAN.md](LEGACY-SWITCH-PLAN.md)(§3.1 進度、§3.2 其他 repo 要改的、§3.3 審查結果)。
-- 已完成(develop 本機提交,**尚未推送**):相容層 `file-api/src/compat/`、匯入 CLI `npm run legacy:import`、migration `20261013022248_compat`、`db/dba/03-create-webappdb-readonly.sql`、`deploy/host2-set-legacy-secrets.sh`、Compose profile `legacy-import`。
-- **推送前必須先套 migration 到 `giganexus_gw_test`**(新程式會讀 `compat_*` 欄位,未套用時既有 API 也會失敗):開發機 `npm run db:migrate`,再推 develop。
-- 使用者待辦:220 執行 03 SQL(並確認 WebAppDb `public` / `guest` 無額外權限)→ 開發機 `.env` 加 `WEBAPPDB_*` → 主機 2 `host2-set-legacy-secrets.sh`;之後 Claude 跑乾跑報表(批次 B)。
+- 已完成並部署測試區(a662f37;**批次 B 匯入完成**:fb 103、smb 54,見 LEGACY-SWITCH-PLAN §3.1):相容層 `file-api/src/compat/`、匯入 CLI `npm run legacy:import`、migration `20261013022248_compat`、`db/dba/03-create-webappdb-readonly.sql`、`deploy/host2-set-legacy-secrets.sh`、Compose profile `legacy-import`。
+- 推送要 **origin(GitHub)與 gitlab 都推**,gitlab develop 才會部署。
+- 下一步:批次 C(Gateway Nginx 白名單直送、bpmcomonent 代理與基底網址,本機舊畫面對測)。
 - 批次 C 需改 Gateway Nginx 與 bpmcomonent,動手前再確認。
 
 ## 2. 下一步

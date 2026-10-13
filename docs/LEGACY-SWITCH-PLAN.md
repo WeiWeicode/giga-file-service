@@ -51,9 +51,10 @@ A1、A2 不需要等任何人,今天先做;B、C 等 §5 的決定。
 | A1 匯入工具 | ✅ 2026-10-13 程式完成(`src/modules/legacy/legacy-import.ts`、`webappdb.ts`、`src/cli/legacy-import.ts`);單元測試以暫存目錄模擬 NAS |
 | A2 相容層 | ✅ 2026-10-13 程式完成(`src/compat/`、`src/modules/compat/`;migration `20261013022248_compat`);單元 23 項 + SQL Server 2012 整合 3 項;已經程式碼審查與資安審查並修正(§3.3) |
 | A3 部署設定 | ✅ Compose 一次性服務 `legacy-import`(profile,不長駐;只有它唯讀掛 `/mnt/nas-docker` → `/data/legacy` 與 WebAppDb 密碼,報表寫主機 `/srv/giganexus/file-legacy-import`);`deploy/host2-set-legacy-secrets.sh` |
-| 使用者 | ⬜ 220 執行 `db/dba/03-create-webappdb-readonly.sql`;主機 2 執行 `host2-set-legacy-secrets.sh`;開發機 `.env` 加 `WEBAPPDB_*` |
-| migration 套用到 `giganexus_gw_test` | ⬜ 部署前以 `npm run db:migrate` 套用(共用測試庫,先徵得同意) |
-| B、C、A4、D | ⬜ |
+| 使用者 | ✅ 2026-10-13 220 執行 03 SQL、主機 2 `host2-set-legacy-secrets.sh`、開發機 `.env` |
+| migration 套用到 `giganexus_gw_test` | ✅ 2026-10-13 |
+| B 測試區匯入 | ✅ 2026-10-13(a662f37):filebackend 103、SMBbackend 54 筆匯入,失敗 0;重跑 0 筆(冪等);容器內經相容層驗證清單筆數、舊 id 下載(大小相符、UTF-8 檔名)、中文 path 下載、共用檔兩個單號各查得到;SMB 孤兒檔 48 個依使用者決定不匯入。主機 2 輔助腳本 `C:/Users/user/file-legacy-apply.sh fb|smb [--apply]`、`file-legacy-verify.sh` |
+| C、A4、D | ⬜ |
 
 ### 3.1.1 批次 B 乾跑結果(2026-10-13,開發機唯讀,未寫入)
 
