@@ -88,6 +88,9 @@ services:
       GW_ENV: ${GW_ENV}
       SERVICE_CODE: file-api
       GW_BASE_URL: ${GW_BASE_URL:?GW_BASE_URL 必須設定}
+      # SDK 在 test / prod 要求這兩項(loadGatewayEnv);CLI 不註冊、不呼叫 Gateway
+      GW_API_KEY_FILE: /run/secrets/gw_api_key
+      SERVICE_ADVERTISE_URL: http://file-api:51272
       MONITOR_ENABLED: 'false'
       FILE_ROOT: /data/files
       FILE_DB_HOST: ${FILE_DB_HOST:?FILE_DB_HOST 必須設定}
@@ -100,7 +103,7 @@ services:
       WEBAPPDB_NAME: ${WEBAPPDB_NAME:-WebAppDb}
       WEBAPPDB_USER: ${WEBAPPDB_USER:-file_legacy_ro}
       WEBAPPDB_PASSWORD_FILE: /run/secrets/legacy/webappdb_password
-    secrets: [file_db_password]
+    secrets: [gw_api_key, file_db_password]
     volumes:
       - ${FILE_HOST_ROOT:-/srv/giga-files/test}:/data/files
       - ${FILE_SECRETS_DIR}/legacy:/run/secrets/legacy:ro
