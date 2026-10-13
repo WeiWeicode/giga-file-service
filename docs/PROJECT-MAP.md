@@ -24,6 +24,7 @@ giga-file-service/
    │  ├─ config.ts            設定(部署區、FILE_ROOT、FILE_DB_*、_FILE 機密、暫存保留時數)
    │  ├─ errors.ts、openapi.ts(x-gateway、權限宣告)、print-openapi.ts、migrate.ts(Drizzle migrator,紀錄表 file_svc)
    │  ├─ routes/files.ts      /v1/files*、/v1/storage(API.md §2):schema、x-permission、x-gherkin、格式轉換
+   │  ├─ routes/legacy.ts     /v1/legacy/*(「舊系統」Tab:匯入摘要、對照清單、下載;file.legacy.read)
    │  ├─ compat/              舊格式相容層(API.md §4):plugin.ts(自己的舊式錯誤處理)、fb.ts(/compat/fb/*)、smb.ts(/compat/smb/api/*)、
    │  │                       views.ts(舊 JSON 欄位)、common.ts(multipart、呼叫端);不驗內部 Token、不進 OpenAPI
    │  ├─ modules/
@@ -34,7 +35,8 @@ giga-file-service/
    │  │  ├─ compat/           compat-service.ts(上傳檢查、舊 id / path 查找、軟刪除)、legacy-format.ts(舊 platform / mimetype / +08:00 / SMB 目錄)、
    │  │  │                    types.ts(CompatRepo、LegacyMeta)、drizzle-repo.ts
    │  │  └─ legacy/           readonly-source.ts(只有讀取介面的 ReadonlyFs)、inventory.ts(盤點統計、Markdown 報告)、
-   │  │                       webappdb.ts(WebAppDb 唯讀讀取)、legacy-import.ts(F4 匯入:乾跑報表 → --apply 複製 + 寫 file_object / legacy_file_map)
+   │  │                       webappdb.ts(WebAppDb 唯讀讀取)、legacy-import.ts(F4 匯入:乾跑報表 → --apply 複製 + 寫 file_object / legacy_file_map)、
+   │  │                       legacy-service.ts / legacy-repo.ts(「舊系統」Tab 唯讀查詢)
    │  ├─ cli/inventory.ts     舊來源唯讀盤點 CLI(F0;filebackend / smbbackend / portalsolar 預設範圍)
    │  ├─ cli/legacy-import.ts filebackend / SMBbackend 舊檔匯入 CLI(F4;npm run legacy:import -- --source fb|smb [--apply])
    │  └─ db/                  schema.ts(file_svc 三張表)、client.ts(連線池、Drizzle、2012 語法檢查 logger)、
@@ -56,7 +58,7 @@ giga-file-service/
 | --- | --- | --- |
 | `/api/file/files*`、`/api/file/storage` | API §2 | ✅ 測試區已部署並驗收(F1) |
 | `/api/file/storage/backup/retry` | API §2、STORAGE §2.1 | ✅ 測試區已部署並驗收(F2) |
-| `/api/file/inventory/*` | API §2 | 規劃(F4) |
+| `/api/file/legacy/*` | API §2 | 🔶 已實作(A4,「舊系統」Tab) |
 | `/api/file/bpm/*` | API §3 | ✅ 測試區已部署並驗收(F6;`src/modules/bpm/`、`src/routes/bpm.ts`;191 / 190 以 `?env=` 選擇) |
 | `/api/file/compat/{fb,smb}/*` | API §4 | 🔶 已實作(F7,`src/compat/`);待 Gateway Nginx 白名單直送後公開;`portal` 規劃 |
 | GigaItApp「Gateway 管理 › 檔案管理」 | PRD §8 | ✅ 檔案清單、BPM 附件、儲存與備份已上線;舊系統 Tab 隨 F4 |
