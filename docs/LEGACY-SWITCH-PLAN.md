@@ -55,7 +55,8 @@ A1、A2 不需要等任何人,今天先做;B、C 等 §5 的決定。
 | migration 套用到 `giganexus_gw_test` | ✅ 2026-10-13 |
 | B 測試區匯入 | ✅ 2026-10-13(a662f37):filebackend 103、SMBbackend 54 筆匯入,失敗 0;重跑 0 筆(冪等);容器內經相容層驗證清單筆數、舊 id 下載(大小相符、UTF-8 檔名)、中文 path 下載、共用檔兩個單號各查得到;SMB 孤兒檔 48 個依使用者決定不匯入。主機 2 輔助腳本 `C:/Users/user/file-legacy-apply.sh fb|smb [--apply]`、`file-legacy-verify.sh` |
 | C-1 Gateway Nginx | ✅ 2026-10-13(Gateway 6fded7e,PRD v0.13):`/api/file/compat/` 白名單直送 file-api、IP 限流 10 r/s burst 20。測試區實測:開發機 `/sql-files` 103 筆、舊 id 191 下載 200(31,092 B);40 次並行 30 次 200 / 10 次 429;Docker 網路內非白名單來源(偽造 XFF=122)回 403 `IP_NOT_ALLOWED` |
-| C-2 bpmcomonent 本機對測、A4、D | ⬜ |
+| C-2 bpmcomonent | 🔶 2026-10-13 BPM repo 分支 `feature/file-compat`(32d18de,未推送、未部署 122):兩支元件改同來源 `/file-compat/fb`、`/file-compat/smb`;`default.conf.template` 依環境變數 `FILE_COMPAT_FB_UPSTREAM` / `FILE_COMPAT_SMB_UPSTREAM` 轉發(Dockerfile 預設 = 舊 :5124 / :5125,部署後行為不變);vite 開發代理設 `FILE_COMPAT_GATEWAY` 時轉測試區。**讀取對測通過**:開發機 vite(5187)開舊畫面 FileUpload(查看者)列出單號 GSRNProess_…4uvYbwntYdPKAMe 的 1 個附件、下載 200 / 31,092 B;SPfileUpload 列出共用檔、時間顯示 `2026/06/03 17:10:20`、下載 PDF 200 / 261,945 B。⬜ 上傳 / 刪除對測、Nginx 樣板容器實測 |
+| A4、D | ⬜ |
 
 ### 3.1.1 批次 B 乾跑結果(2026-10-13,開發機唯讀,未寫入)
 
