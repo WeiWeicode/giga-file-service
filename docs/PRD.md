@@ -146,6 +146,7 @@ file-api(:51272)位於 Gateway 之後:一般 API 經 BFF 轉發(`X-Internal-Toke
 14. 舊服務使用者**已確認**([LEGACY-INVENTORY.md](LEGACY-INVENTORY.md) §4):兩個舊服務的資料列全部是 BPM 表單前端。**2026-10-08 NAS 盤點**(§6.1):`CRM`、`MES` 為空目錄、沒有 `ERP`;`CP` 有 101 個檔案(資料表 83 筆)、filebackend 110 個(資料表 151 筆),逐筆對照待 `WebAppDb` 唯讀帳號。
 15. 相容路由 `auth_mode = public` 與 Nginx 內網白名單([API.md](API.md) §4.4 規則 4)是否接受。**✅ 2026-10-13 接受**:改為由 Gateway Nginx 直接轉給 file-api(不經 BFF,不需在路由表設 `public`),白名單只放 `bpmcomonent` 所在主機(122)與開發機([LEGACY-SWITCH-PLAN.md](LEGACY-SWITCH-PLAN.md) §5 Q2)。
 16. Gateway 的 CORS 白名單可否加入 BPM 前端來源並暴露 `Content-Disposition`(規則 9);相容層 `/sql-files` 無 `limit` 時回全部(規則 8)是否接受。**✅ 2026-10-13**:不需 CORS — `bpmcomonent` 的 Nginx 反向代理 `/file-compat/` 到 Gateway,瀏覽器看到的是同一個來源(§5 Q1);規則 8 照規劃實作。
+17. 「舊系統」Tab 是否提供管理者上傳(補件到 BPM 表單,權限 `file.legacy.write`)、是否列出經相容層新上傳的檔案(2026-10-13 提出,[LEGACY-SWITCH-PLAN.md](LEGACY-SWITCH-PLAN.md) §8);目前唯讀。
 
 ## 12. 文件索引與拆分對照
 

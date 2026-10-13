@@ -1,6 +1,6 @@
 # giga-file-service — 目前進度與待處理事項
 
-> 最後更新:2026-10-08 17:00 — **本階段收尾**:F1(file-api 主體)、F2(NAS 備份)、F3(檔案管理頁)、F6(BPM 附件,191 / 190)測試區驗收完成,里程碑「測試區附件服務可用」達成。下一階段 F4 / F7 待需求方決定(§3)。分批進行(使用者 2026-10-08 指示):每完成一批就給使用者測試,測試期間同步做下一批。時程以甘特圖 W11 為準。
+> 最後更新:2026-10-13 — **filebackend / SMBbackend 接手(F4 + F7)測試區完成**,見 §0;正式切換隨 Gateway 正式區(2026-12)。以下為 2026-10-08 階段:F1(file-api 主體)、F2(NAS 備份)、F3(檔案管理頁)、F6(BPM 附件,191 / 190)測試區驗收完成,里程碑「測試區附件服務可用」達成。下一階段 F4 / F7 待需求方決定(§3)。分批進行(使用者 2026-10-08 指示):每完成一批就給使用者測試,測試期間同步做下一批。時程以甘特圖 W11 為準。
 > 細節以各文件為準:[PRD](PRD.md)(決策 D1–D17、待確認 §11)、[IMPL-PLAN](IMPL-PLAN.md)(F0–F7)、[DEPLOYMENT](DEPLOYMENT.md) §2.1。
 
 ## 1. 已完成
@@ -19,13 +19,22 @@
 | Gateway 修正 | 轉給上游的 `X-Forwarded-For` 順序相反,經 BFF 的操作紀錄 ip 都是 Nginx 容器 `172.19.0.6` → 改為用戶端在前 | Gateway eb03b79 | BFF 227 通過;部署後紀錄 ip 為 `10.10.112.13` |
 | F0 | NAS(filebackend 110、CP 101,含 SHA-256)、166(55,169 檔)唯讀盤點 | — | LEGACY-INVENTORY §6 |
 
-## 0. 2026-10-13 進行中:filebackend / SMBbackend 接手(F4 + F7)
+## 0. 2026-10-13:filebackend / SMBbackend 接手(F4 + F7)— 測試區完成
 
-- 計畫與決定:[LEGACY-SWITCH-PLAN.md](LEGACY-SWITCH-PLAN.md)(§3.1 進度、§3.2 其他 repo 要改的、§3.3 審查結果)。
-- 已完成並部署測試區(a662f37;**批次 B 匯入完成**:fb 103、smb 54,見 LEGACY-SWITCH-PLAN §3.1):相容層 `file-api/src/compat/`、匯入 CLI `npm run legacy:import`、migration `20261013022248_compat`、`db/dba/03-create-webappdb-readonly.sql`、`deploy/host2-set-legacy-secrets.sh`、Compose profile `legacy-import`。
-- 推送要 **origin(GitHub)與 gitlab 都推**,gitlab develop 才會部署。
-- 下一步:批次 C(Gateway Nginx 白名單直送、bpmcomonent 代理與基底網址,本機舊畫面對測)。
-- 批次 C 需改 Gateway Nginx 與 bpmcomonent,動手前再確認。
+計畫、決定、進度與正式切換清單:[LEGACY-SWITCH-PLAN.md](LEGACY-SWITCH-PLAN.md)(§3.1 進度、§5 決定、§7 正式切換、§8 後續可選)。
+
+| 批次 | 狀態 | 位置 |
+| --- | --- | --- |
+| A 相容層、匯入工具、部署設定 | ✅ | file-api `src/compat/`、`src/cli/legacy-import.ts`;Compose profile `legacy-import` |
+| B 測試區匯入 | ✅ fb 103、smb 54(SMB 孤兒檔 48 不匯入) | 主機 2 `C:/Users/user/file-legacy-apply.sh fb\|smb [--apply]` |
+| C-1 Gateway Nginx | ✅ 白名單直送 + 限流 | Gateway 6fded7e(PRD v0.13) |
+| C-2 bpmcomonent | ✅ 本機舊畫面對測(列表 / 上傳 / 下載 / 刪除) | BPM repo `feature/file-compat`(已推 origin,**未部署 122**) |
+| A4「舊系統」Tab | 🔶 已部署測試區,**瀏覽器實測待做**(需在瀏覽器窗格以 it-admin 帳號登入) | file-api a3373b5、GigaItApp c192353 |
+| D 正式切換 | ⬜ 2026-12,隨 Gateway 正式區 | LEGACY-SWITCH-PLAN §7 |
+
+- 推送:file-service 與 GigaItApp 要 **origin(GitHub)與 gitlab 都推**,gitlab develop 才部署;Gateway 推 `gitlab main:develop` 部署。
+- 新路由由 file-api 自動註冊為草稿,要在 GigaItApp「服務與路由」發佈;`gateway-rbac.yaml` 引用的權限要先存在。
+- 待使用者決定:「舊系統」Tab 是否提供管理者上傳(PRD §11 #17)。
 
 ## 2. 下一步
 

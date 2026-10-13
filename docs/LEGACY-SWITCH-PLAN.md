@@ -56,7 +56,7 @@ A1、A2 不需要等任何人,今天先做;B、C 等 §5 的決定。
 | B 測試區匯入 | ✅ 2026-10-13(a662f37):filebackend 103、SMBbackend 54 筆匯入,失敗 0;重跑 0 筆(冪等);容器內經相容層驗證清單筆數、舊 id 下載(大小相符、UTF-8 檔名)、中文 path 下載、共用檔兩個單號各查得到;SMB 孤兒檔 48 個依使用者決定不匯入。主機 2 輔助腳本 `C:/Users/user/file-legacy-apply.sh fb|smb [--apply]`、`file-legacy-verify.sh` |
 | C-1 Gateway Nginx | ✅ 2026-10-13(Gateway 6fded7e,PRD v0.13):`/api/file/compat/` 白名單直送 file-api、IP 限流 10 r/s burst 20。測試區實測:開發機 `/sql-files` 103 筆、舊 id 191 下載 200(31,092 B);40 次並行 30 次 200 / 10 次 429;Docker 網路內非白名單來源(偽造 XFF=122)回 403 `IP_NOT_ALLOWED` |
 | C-2 bpmcomonent | 🔶 2026-10-13 BPM repo 分支 `feature/file-compat`(32d18de,未推送、未部署 122):兩支元件改同來源 `/file-compat/fb`、`/file-compat/smb`;`default.conf.template` 依環境變數 `FILE_COMPAT_FB_UPSTREAM` / `FILE_COMPAT_SMB_UPSTREAM` 轉發(Dockerfile 預設 = 舊 :5124 / :5125,部署後行為不變);vite 開發代理設 `FILE_COMPAT_GATEWAY` 時轉測試區。**讀取對測通過**:開發機 vite(5187)開舊畫面 FileUpload(查看者)列出單號 GSRNProess_…4uvYbwntYdPKAMe 的 1 個附件、下載 200 / 31,092 B;SPfileUpload 列出共用檔、時間顯示 `2026/06/03 17:10:20`、下載 PDF 200 / 261,945 B。**寫入對測通過**(測試單號 `TEST-COMPAT-20261013` / `TEST-COMPAT-SMB-20261013`,測完已刪除):FileUpload 編輯者上傳 PDF → 清單與統計更新、時間顯示台灣時間 → 刪除成功;SPfileUpload 上傳 → path 為 `{uuid}.pdf`、下載 200 → 刪除後清單為 0。**Nginx 樣板容器實測**(主機 2 一次性映像,測完移除):預設環境變數 `nginx -t` 通過、`/file-compat/fb/sql-files` 轉到舊 filebackend 200;設 Gateway 變數時轉到 Gateway(Docker 網路來源非白名單回 403,轉發路徑正確);SPA 路由不受影響。分支已推送 BPM origin。✅ 批次 C 完成 |
-| A4「舊系統」Tab | 🔶 2026-10-13 file-api `/api/file/legacy/{summary,files,files/:uuid/content}`(`file.legacy.read`,a3373b5)、GigaItApp `pages/files/Legacy.vue` + 節點 `it.gw-file.legacy`;單元 4 項、SQL Server 整合 1 項 |
+| A4「舊系統」Tab | 🔶 2026-10-13 file-api `/api/file/legacy/{summary,files,files/:uuid/content}`(`file.legacy.read`,a3373b5;使用者已在「服務與路由」發佈)、GigaItApp `pages/files/Legacy.vue` + 節點 `it.gw-file.legacy`(c192353,CI deploy-test / rbac-test 成功);單元 4 項、SQL Server 整合 1 項。⬜ 瀏覽器實測(待使用者在瀏覽器窗格登入) |
 | D | ⬜ |
 
 ### 3.1.1 批次 B 乾跑結果(2026-10-13,開發機唯讀,未寫入)
@@ -141,3 +141,19 @@ A1、A2 不需要等任何人,今天先做;B、C 等 §5 的決定。
 - NAS 是時間點快照:切換前要請 122 再跑一次 robocopy(或凍結舊服務上傳),再用 `--since` 補差異。
 - 切換後舊前端的新上傳進新服務,舊服務不再收檔;切換前必須完成並驗證歷史檔匯入(規則 5)。
 - 舊整數 id 可被逐號猜測(舊問題),相容層照舊接受;新檔改用 UUID。
+
+## 7. 正式切換清單(批次 D,2026-12;現在不執行)
+
+前置:Gateway 正式區(主機 3)上線、正式區 file-api 部署(`giganexus_gw` schema `file_svc`、migration、NAS `giga-files/prod/`)、正式區路由發佈、Gateway `allowlists/prod/file-compat-clients.conf`(122)。
+
+1. **122 遷入 WSL Docker Engine**(若在切換前完成):遷移後實測 Gateway 看到的來源 IP 仍是 10.10.130.122(WSL NAT 出口為主機 IP;若改 mirrored 網路或 IP 變動,更新 `file-compat-clients.conf`)。
+2. **部署 bpmcomonent 新版**(BPM repo `feature/file-compat` 合併後,122 `docker-compose up -d --build bpmcomonent`):環境變數不設 = 仍指向舊服務,行為不變;部署後確認兩支舊畫面正常。
+3. **最後一次差異匯入**:請 122 再跑一次 robocopy(filebackend files → NAS 根目錄、SMB files → `CP`)→ 正式區 `legacy-import --source fb|smb`(乾跑看報表)→ `--apply`(已匯入的跳過;舊表改無效的軟刪除)。
+4. **切換 filebackend**:122 的 bpmcomonent 設 `FILE_COMPAT_FB_UPSTREAM=https://<正式區 gateway>/api/file/compat/fb/`,重建容器;以 BPM 表單實測列表 / 上傳 / 下載 / 刪除;觀察數日。
+5. **切換 SMBbackend**:同上設 `FILE_COMPAT_SMB_UPSTREAM`。
+6. **舊服務**:確認沒有流量後停止收檔(舊 5124 / 5125 保留唯讀一段時間);NAS 原始備份保留。
+7. **回退**:環境變數改回舊服務並重建容器;切換期間新上傳的檔案只在新服務,回退後於「舊系統」Tab / 資料庫列出,人工處理。
+
+## 8. 後續可選(待使用者決定)
+
+- 「舊系統」Tab 目前唯讀。若需要管理者補上傳附件到 BPM 表單(補件、更正):新增 `POST /api/file/legacy/files`(`file.legacy.write`,上傳者為 Gateway 驗證的本人)與 Tab「上傳」按鈕節點,並把經相容層新上傳的檔一併列入 Tab(PRD §11 #17)。
