@@ -49,6 +49,8 @@ export interface LegacyMapEntry {
   mtimeUtc: Date;
   sha256: string;
   nasPath: string;
+  /** 預設 true;共用同一 NAS 檔的較舊資料列為 false */
+  isCurrent?: boolean;
   at: Date;
 }
 

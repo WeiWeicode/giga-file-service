@@ -55,6 +55,18 @@ A1、A2 不需要等任何人,今天先做;B、C 等 §5 的決定。
 | migration 套用到 `giganexus_gw_test` | ⬜ 部署前以 `npm run db:migrate` 套用(共用測試庫,先徵得同意) |
 | B、C、A4、D | ⬜ |
 
+### 3.1.1 批次 B 乾跑結果(2026-10-13,開發機唯讀,未寫入)
+
+| 來源 | 資料列 / 有效 | 可匯入 | 斷鏈 | 孤兒檔 | 重複內容 | 副檔名 |
+| --- | --- | --- | --- | --- | --- | --- |
+| filebackend | 151 / 103 | 103 | 0 | 0 | 11 組 | png 59、pdf 31、xlsx 4、jpg 3、txt 2、doc 2、docx 1、xls 1 |
+| SMBbackend | 83 / 54 | 54(其中 1 筆與另一張表單共用同一檔) | 0 | 48(38.6 MB) | 1 組 | pdf 49、xlsx 5 |
+
+- **時區假設已確認**:16 筆樣本的 NAS 修改時間與 `uploadDate`(視為台灣時間)差距 1 分鐘內。
+- **共用檔**:smbFileUpload 58、65 是兩張不同單號的表單引用同一個 `CP-NGP0001 (GP-906BL)-20260522(2).pdf`;改為兩筆都匯入(對照表較舊者 `is_current = 0`),兩個單號都查得到。
+- **SMB 孤兒檔 48 個**:CP 目錄有、`smbFileUpload` 沒有任何資料列(多為 2024-11 ~ 2025 的 CP 檔與 `_1`、`(2)` 重複上傳);舊前端以單號查詢本來就看不到,**預設不匯入**,NAS 上原檔保留。
+- 報表:`file-api/data/legacy-import/*-dryrun-*.json`(不進版控)。
+
 ### 3.2 批次 C 需要改的其他 repo(跨 repo,動手前再確認)
 
 - **Gateway**(`giga-api-gateway-bff/nginx/conf.d/portal.conf`):新增 `location ^~ /api/file/compat/`(優先於一般 `/api/` 經 BFF 的規則;相容路由不在 BFF 路由表,經 BFF 只會 404):`allow` 122 與開發機 10.10.112.13、`deny all`、`client_max_body_size 31m`、直接 `proxy_pass http://file-api:51272/compat/`(不經 BFF、不做 `auth_request`)、重列 `json-errors` 之外的錯誤頁(相容層錯誤由 file-api 回舊式 JSON);`proxy_set_header X-Forwarded-For $remote_addr`(不可用 `$proxy_add_x_forwarded_for`,否則稽核 IP 可被用戶端偽造)、`limit_req` 限流;在 Gateway `docs/DevelopmentProcess/` 留紀錄。

@@ -164,20 +164,28 @@ describe('filebackend 乾跑與匯入(MIGRATION.md §2)', () => {
 });
 
 describe('SMBbackend 匯入(規則 12)', () => {
-  it('同一 path 被多筆有效列引用(同名覆蓋):只匯入 id 最大的一筆,其餘列為 duplicate-path', async () => {
+  it('同一 path 被兩張表單引用(實例 smbFileUpload 58 / 65):兩筆都匯入,兩個單號都查得到;較舊的對照列為非現行', async () => {
     put('CP/管制計劃.pdf', PDF);
     const rows = [10, 12].map((id) =>
       row({ id, path: '管制計劃.pdf', filename: '管制計劃.pdf', originalName: '管制計劃.pdf', SourcePlatform: 'Web', SourceNumber: `SP-${id}` }),
     );
     const r = await run(smbSpec(), rows, true);
     assert.deepEqual(
-      r.items.map((i) => [i.legacyId, i.status, i.result ?? null]),
+      r.items.map((i) => [i.legacyId, i.result, i.sharedPath ?? false]),
       [
-        [10, 'duplicate-path', null],
-        [12, 'import', 'imported'],
+        [10, 'imported', true],
+        [12, 'imported', false],
       ],
     );
-    assert.equal((t.repo as MemoryFileRepo).files.length, 1);
+    assert.deepEqual(
+      t.compat!.repo.maps.map((m) => [m.legacyKey, m.isCurrent ?? true]),
+      [
+        ['10', false],
+        ['12', true],
+      ],
+    );
+    for (const sn of ['SP-10', 'SP-12']) assert.equal((await t.app.inject(`/compat/smb/api/db/search?sourceNumber=${sn}&effective=true`)).json().count, 1);
+    assert.equal((await t.app.inject(`/compat/smb/api/download?path=${encodeURIComponent('管制計劃.pdf')}`)).statusCode, 200);
   });
 
   it('寫入資料庫失敗:記為 error,已複製的本機檔移除(不留有檔無紀錄),其他筆照常', async () => {

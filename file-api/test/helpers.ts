@@ -141,6 +141,10 @@ export class MemoryCompatRepo implements CompatRepo {
   }
   async insertLegacy(file: NewCompatFile, map: LegacyMapEntry): Promise<void> {
     if (this.maps.some((m) => m.legacySource === map.legacySource && m.legacyKey === map.legacyKey)) throw new Error('legacy_key 重複');
+    // 比照 uq_legacy_file_map_current:現行列的 (來源, 目錄, 檔名) 唯一
+    const cur = (m: LegacyMapEntry) => m.isCurrent !== false;
+    if (cur(map) && this.maps.some((m) => cur(m) && m.legacySource === map.legacySource && m.legacyDir === map.legacyDir && m.legacyName === map.legacyName))
+      throw new Error('uq_legacy_file_map_current');
     await this.files.insertMany([file], [{ fileUuid: file.fileUuid, action: 'upload', userId: 'system:legacy-import', ip: null, requestId: null }]);
     this.maps.push(map);
   }

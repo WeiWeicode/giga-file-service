@@ -28,7 +28,7 @@ export interface ImportSourceSpec {
 
 export const FB_SPEC_DIRS = ['BPM', 'CRM', 'ERP', 'MES', 'OTHER'];
 
-export type ItemStatus = 'import' | 'imported' | 'missing' | 'blocked' | 'bad-path' | 'duplicate-path' | 'unreadable' | 'inactive' | 'delete' | 'deleted';
+export type ItemStatus = 'import' | 'imported' | 'missing' | 'blocked' | 'bad-path' | 'unreadable' | 'inactive' | 'delete' | 'deleted';
 
 export interface ImportItem {
   legacyId: number;
@@ -39,6 +39,8 @@ export interface ImportItem {
   sourceNumber: string | null;
   sizeDb: number | null;
   sizeNas?: number;
+  /** 與 id 較大的有效列共用同一個 NAS 檔(不同表單引用同一檔):照樣匯入,legacy_file_map 標 is_current = 0 */
+  sharedPath?: true;
   sha256?: string;
   fileUuid?: string;
   result?: 'imported' | 'deleted' | 'error';
@@ -166,7 +168,8 @@ export async function runImport(opts: ImportOptions): Promise<ImportReport> {
   };
 
   // 1. 逐列分類
-  // 同一個 NAS 檔被多筆有效列引用(SMB 同名覆蓋):只匯入 id 最大的一筆,其餘列入報表(legacy_file_map 唯一鍵,MIGRATION §1 第 4 點)
+  // 同一個 NAS 檔被多筆有效列引用(不同表單上傳同名檔):每筆都匯入(各表單都要查得到附件),
+  // id 最大的一筆在 legacy_file_map 為現行,其餘 is_current = 0(唯一鍵只約束現行列;MIGRATION §1 第 4 點)
   const winner = new Map<string, number>();
   for (const row of rows) {
     const rel = row.Effective ? legacyRel(spec, row) : null;
@@ -189,7 +192,6 @@ export async function runImport(opts: ImportOptions): Promise<ImportReport> {
     if (!row.Effective) item.status = prev ? (prev.deleted ? 'deleted' : 'delete') : 'inactive';
     else if (prev) item.status = 'imported';
     else if (!rel) item.status = 'bad-path';
-    else if (winner.get(rel.toLowerCase()) !== row.id) item.status = 'duplicate-path';
     else if (BLOCKED_EXTS.has(extOf(rel)) || BLOCKED_EXTS.has(extOf(item.originalName))) item.status = 'blocked';
     else {
       // 單一檔案讀不到(鎖定、權限、NAS 斷線)不中止整批,標 unreadable 並列入報表(AGENT.md §5)
@@ -210,6 +212,7 @@ export async function runImport(opts: ImportOptions): Promise<ImportReport> {
       const e = extOf(item.originalName) || extOf(rel!) || '(無)';
       report.exts[e] = (report.exts[e] ?? 0) + 1;
     }
+    if (item.status === 'import' && winner.get(rel!.toLowerCase()) !== row.id) item.sharedPath = true;
     report.items.push(item);
   }
 
@@ -295,6 +298,7 @@ export async function runImport(opts: ImportOptions): Promise<ImportReport> {
         mtimeUtc: st.mtime,
         sha256: temp.sha256,
         nasPath: item.rel!,
+        isCurrent: !item.sharedPath,
         at: now(),
       });
       item.fileUuid = fileUuid;
@@ -319,7 +323,8 @@ export function summarize(r: ImportReport): string {
   const res = (x: ImportItem['result']) => r.items.filter((i) => i.result === x).length;
   const lines = [
     `${r.source}(${r.table}):資料列 ${r.rows.total} 筆,有效 ${r.rows.effective}`,
-    `  可匯入 ${n('import')}、已匯入 ${n('imported')}、斷鏈(NAS 無檔)${n('missing')}、讀取失敗 ${n('unreadable')}、擋下(執行檔)${n('blocked')}、路徑異常 ${n('bad-path')}、同路徑舊列 ${n('duplicate-path')}`,
+    `  可匯入 ${n('import')}、已匯入 ${n('imported')}、斷鏈(NAS 無檔)${n('missing')}、讀取失敗 ${n('unreadable')}、擋下(執行檔)${n('blocked')}、路徑異常 ${n('bad-path')}`,
+    `  其中與其他表單共用同一 NAS 檔 ${r.items.filter((i) => i.sharedPath).length}(各自匯入,對照表標非現行)`,
     `  無效列 ${n('inactive')}、已匯入但舊表已無效 ${n('delete')}(已處理 ${n('deleted')})`,
     `  孤兒檔(NAS 有、資料列無)${r.orphans.length}、重複內容 ${r.duplicates.length} 組、掃描錯誤 ${r.errors.length}`,
     `  副檔名:${

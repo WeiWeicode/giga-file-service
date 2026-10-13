@@ -53,7 +53,7 @@ try {
   });
 
   // 需要人看的列:斷鏈、擋下、路徑異常、失敗
-  for (const i of report.items.filter((x) => ['missing', 'blocked', 'bad-path', 'duplicate-path', 'unreadable'].includes(x.status) || x.result === 'error'))
+  for (const i of report.items.filter((x) => ['missing', 'blocked', 'bad-path', 'unreadable'].includes(x.status) || x.result === 'error'))
     console.log(
       `${(i.result ?? i.status).padEnd(9)} id=${i.legacyId} ${i.rel ?? '(無路徑)'} ${i.originalName} 單號=${i.sourceNumber ?? ''}${i.error ? ` ${i.error}` : ''}`,
     );

@@ -44,7 +44,7 @@ export class DrizzleCompatRepo implements CompatRepo {
         sizeBytes: m.sizeBytes,
         mtimeUtc: m.mtimeUtc,
         sha256: m.sha256,
-        isCurrent: true,
+        isCurrent: m.isCurrent ?? true,
         nasPath: m.nasPath,
         wslCopiedAt: m.at,
         firstSeenAt: m.at,
