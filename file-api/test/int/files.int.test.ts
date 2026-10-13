@@ -14,6 +14,7 @@ import { migrateSqlConfig, runMigrations } from '../../src/migrate.js';
 import { DrizzleCompatRepo } from '../../src/modules/compat/drizzle-repo.js';
 import type { NewCompatFile } from '../../src/modules/compat/types.js';
 import { DrizzleFileRepo } from '../../src/modules/files/drizzle-repo.js';
+import { DrizzleLegacyRepo } from '../../src/modules/legacy/legacy-repo.js';
 import type { NewFile } from '../../src/modules/files/types.js';
 import { buildTestApp, multipart, PDF, startJwks, user, type Jwks, type TestApp } from '../helpers.js';
 
@@ -283,5 +284,25 @@ describe('DrizzleCompatRepo(SQL Server 2012;相容層與 F4 匯入)', () => {
     assert.equal((await t.app.inject(`/compat/fb/sql-download/${id}`)).statusCode, 200);
     assert.equal((await t.app.inject({ method: 'DELETE', url: `/compat/fb/sql-delete/${id}` })).json().success, true);
     assert.equal((await t.app.inject(`/compat/fb/sql-download/${id}`)).statusCode, 404);
+  });
+});
+
+describe('DrizzleLegacyRepo(SQL Server 2012;「舊系統」Tab)', () => {
+  it('清單關鍵字(含 LIKE 萬用字元跳脫)、摘要彙總、find', async () => {
+    const legacy = new DrizzleLegacyRepo(createDb(pool, true));
+    // 前一個 describe 已匯入 smbbackend 舊 id 31(單號 SP-31)
+    const hit = await legacy.list({ source: 'smbbackend', q: 'SP-31', page: 1, pageSize: 10 });
+    assert.equal(hit.total, 1);
+    assert.equal(hit.items[0]!.legacyKey, '31');
+    assert.equal(hit.items[0]!.isCurrent, true);
+    assert.equal((await legacy.list({ q: '%', page: 1, pageSize: 10 })).total, 0, '% 視為字面字元');
+    assert.equal((await legacy.list({ source: 'filebackend', page: 1, pageSize: 10 })).total, 0);
+    const sum = await legacy.summary();
+    const smb = sum.find((x) => x.source === 'smbbackend')!;
+    assert.equal(smb.files, 1);
+    assert.equal(smb.bytes, 10);
+    assert.equal(smb.backup.pending, 1);
+    assert.ok(smb.lastImportedAt instanceof Date);
+    assert.equal((await legacy.find(hit.items[0]!.fileUuid))?.legacyName, '電子發票設定-31.pdf');
   });
 });

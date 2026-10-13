@@ -15,6 +15,8 @@ import { BpmDocServer } from './modules/bpm/doc-server.js';
 import { NanaBpmRepo } from './modules/bpm/nana-repo.js';
 import { CompatService } from './modules/compat/compat-service.js';
 import { DrizzleCompatRepo } from './modules/compat/drizzle-repo.js';
+import { DrizzleLegacyRepo } from './modules/legacy/legacy-repo.js';
+import { LegacyService } from './modules/legacy/legacy-service.js';
 import { FileService } from './modules/files/file-service.js';
 import { BackupStore } from './modules/storage/backup-store.js';
 import { LocalStore } from './modules/storage/local-store.js';
@@ -89,6 +91,7 @@ const app = await buildApp({
   backup,
   bpm,
   compat,
+  legacy: new LegacyService(new DrizzleLegacyRepo(db), store),
   readiness: async () => {
     const c = await checks();
     return { ok: c.every((x) => x.ok), checks: Object.fromEntries(c.map((x) => [x.name, x.ok ? 'ok' : `error: ${x.message}`])) };

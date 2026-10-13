@@ -54,7 +54,9 @@
 | DELETE | `/api/file/files/:uuid` | 軟刪除 | `file.object.delete` |
 | GET | `/api/file/storage` | 容量、備份統計、失敗清單;`backupEnabled` 表示此環境是否設定 NAS 備份 | `file.storage.read` |
 | POST | `/api/file/storage/backup/retry` | 重試失敗的備份:`failed` → `pending`、失敗次數歸零,下一輪排程補傳;body `fileUuids[]` 選填(省略為全部);未設定 NAS 備份回 409 `FILE_BACKUP_DISABLED` | `file.storage.manage` |
-| GET | `/api/file/inventory/*` | 舊系統盤點結果(唯讀;**F4,未實作**;F0 先以 CLI `npm run inventory` 產出報告) | `file.legacy.read` |
+| GET | `/api/file/legacy/summary` | 舊系統匯入摘要:filebackend / smbbackend 各自的檔案數、容量、已刪除數、備份狀態、最後匯入時間(沒有資料的來源為 0)(F4 / A4,`src/routes/legacy.ts`) | `file.legacy.read` |
+| GET | `/api/file/legacy/files` | 匯入的舊檔與對照清單(`source`、關鍵字 `q` 部分比對舊 id / 舊檔名 / 原檔名 / 單號;分頁);不回實體路徑 | `file.legacy.read` |
+| GET | `/api/file/legacy/files/:uuid/content` | 下載匯入的舊檔(管理者查核,含已在新服務刪除者);寫操作紀錄 | `file.legacy.read` |
 | GET | `/healthz`、`/openapi.json` | 健康檢查、Gateway 匯入 | 內網 |
 
 **上傳兩段式(建議)**:畫面先上傳拿到 `file_uuid`(此時 `ref_no` 為空,屬暫存),單據存檔時再呼叫 `bind`;超過 24 小時未綁定的暫存檔由排程清除(每小時,標記 `deleted_by = system:temp-cleanup` 並移除實體檔)。避免「單據沒存成、檔案留下垃圾」。

@@ -25,6 +25,7 @@ import {
 import { BackupService, type BackupAlert } from '../src/modules/backup/backup-service.js';
 import { CompatService } from '../src/modules/compat/compat-service.js';
 import type { CompatListFilter, CompatNs, CompatRecord, CompatRepo, LegacyMapEntry, NewCompatFile } from '../src/modules/compat/types.js';
+import { LegacyService, type LegacyFilter, type LegacyItem, type LegacyRepo, type LegacySummary } from '../src/modules/legacy/legacy-service.js';
 import { BpmService, BpmSources } from '../src/modules/bpm/bpm-service.js';
 import { BpmDocServer } from '../src/modules/bpm/doc-server.js';
 import type { BpmRepo } from '../src/modules/bpm/types.js';
@@ -129,7 +130,7 @@ export class MemoryFileRepo implements FileRepo {
 }
 
 /** 相容層的記憶體 repo:與 MemoryFileRepo 共用 files / logs(同一張 file_object),另記 legacy_file_map */
-export class MemoryCompatRepo implements CompatRepo {
+export class MemoryCompatRepo implements CompatRepo, LegacyRepo {
   readonly maps: LegacyMapEntry[] = [];
   constructor(readonly files: MemoryFileRepo) {}
 
@@ -159,7 +160,7 @@ export class MemoryCompatRepo implements CompatRepo {
     const m = this.maps.find((x) => x.legacySource === src && x.legacyKey === legacyId);
     return m ? (this.rows.find((f) => f.fileUuid === m.fileUuid && f.compatNs === ns) ?? null) : null;
   }
-  async list(q: CompatListFilter) {
+  private async compatList(q: CompatListFilter) {
     const rows = this.rows
       .filter((f) => f.compatNs === q.ns)
       .filter((f) => q.effective === undefined || (q.effective ? !f.deletedAt : !!f.deletedAt))
@@ -187,6 +188,68 @@ export class MemoryCompatRepo implements CompatRepo {
   }
   async log(entry: AccessLog) {
     await this.files.log(entry);
+  }
+  // ---- LegacyRepo(「舊系統」Tab)----
+  private legacyItems(): LegacyItem[] {
+    return this.maps.map((m) => {
+      const f = this.rows.find((x) => x.fileUuid === m.fileUuid)!;
+      return {
+        fileUuid: m.fileUuid,
+        legacySource: m.legacySource,
+        legacyKey: m.legacyKey,
+        legacyDir: m.legacyDir,
+        legacyName: m.legacyName,
+        isCurrent: m.isCurrent !== false,
+        syncState: 'done',
+        importedAt: m.at,
+        originalName: f.originalName,
+        mime: f.mime,
+        refNo: f.refNo,
+        sourceSystem: f.sourceSystem,
+        sourceApp: f.sourceApp,
+        sizeBytes: f.sizeBytes,
+        sha256: f.sha256,
+        uploadedBy: f.uploadedBy,
+        createdAt: f.createdAt,
+        deletedAt: f.deletedAt,
+        backupStatus: f.backupStatus,
+        storageKey: f.storageKey,
+      };
+    });
+  }
+  async list(q: CompatListFilter): Promise<{ items: CompatRecord[]; total: number }>;
+  async list(q: LegacyFilter): Promise<{ items: LegacyItem[]; total: number }>;
+  async list(q: CompatListFilter | LegacyFilter): Promise<{ items: (CompatRecord | LegacyItem)[]; total: number }> {
+    if ('ns' in q) return this.compatList(q);
+    const k = q.q?.trim().toLowerCase();
+    const rows = this.legacyItems()
+      .filter((i) => !q.source || i.legacySource === q.source)
+      .filter((i) => !k || [i.legacyKey, i.legacyName, i.originalName, i.refNo].some((v) => v?.toLowerCase().includes(k)))
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    return { items: rows.slice((q.page - 1) * q.pageSize, q.page * q.pageSize), total: rows.length };
+  }
+  async summary(): Promise<LegacySummary[]> {
+    const by = new Map<string, LegacySummary>();
+    for (const i of this.legacyItems()) {
+      const s = by.get(i.legacySource) ?? {
+        source: i.legacySource,
+        files: 0,
+        bytes: 0,
+        deleted: 0,
+        backup: { pending: 0, done: 0, failed: 0 },
+        lastImportedAt: null,
+      };
+      s.files++;
+      s.bytes += i.sizeBytes;
+      if (i.deletedAt) s.deleted++;
+      s.backup[i.backupStatus]++;
+      if (!s.lastImportedAt || i.importedAt > s.lastImportedAt) s.lastImportedAt = i.importedAt;
+      by.set(i.legacySource, s);
+    }
+    return [...by.values()];
+  }
+  async find(fileUuid: string): Promise<LegacyItem | null> {
+    return this.legacyItems().find((i) => i.fileUuid === fileUuid) ?? null;
   }
 }
 
@@ -239,6 +302,8 @@ export interface TestApp {
   store: LocalStore;
   /** opts.compat 為 true 時 repo 是 MemoryCompatRepo;傳入 CompatRepo(整合測試)時為該 repo */
   compat: { service: CompatService; repo: MemoryCompatRepo } | null;
+  /** compat 為記憶體 repo 時才有 */
+  legacy: LegacyService | null;
   /** 有 opts.backup 時才有 */
   backup: { service: BackupService; nas: BackupStore; root: string; alerts: Parameters<BackupAlert>[0][] } | null;
 }
@@ -305,8 +370,9 @@ export async function buildTestApp(
   const compatRepo: CompatRepo | null =
     opts.compat === true ? (repo instanceof MemoryFileRepo ? new MemoryCompatRepo(repo) : null) : opts.compat ? opts.compat : null;
   const compat = compatRepo ? { repo: compatRepo as MemoryCompatRepo, service: new CompatService({ repo: compatRepo, store, now: () => clock.now }) } : null;
-  const app = await buildApp({ config, service, backup: backup?.service ?? null, bpm, compat: compat?.service ?? null });
-  return { app, repo, service, root, clock, store, backup, compat };
+  const legacy = compatRepo instanceof MemoryCompatRepo ? new LegacyService(compatRepo, store) : null;
+  const app = await buildApp({ config, service, backup: backup?.service ?? null, bpm, compat: compat?.service ?? null, legacy });
+  return { app, repo, service, root, clock, store, backup, compat, legacy };
 }
 
 /** 使用者身分(碩禾,擁有權限由 Gateway 檢查,file-api 只看身分與資料範圍) */
