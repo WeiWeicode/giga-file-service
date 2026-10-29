@@ -5,6 +5,17 @@
 # 網路:file-api 加入 Gateway 的 Docker 網路(GW_NETWORK),別名 file-api:
 #   BFF → http://file-api:51272(X-Internal-Token;路由由啟動時自動註冊的草稿發佈後生效)
 # 檔案:主機 FILE_HOST_ROOT(預設 /srv/giga-files/test,WSL ext4,不放 /mnt/c;STORAGE.md §1)bind mount 到 /data/files,擁有者 uid 1000
+# NAS 備份(STORAGE.md §2):主機 FILE_BACKUP_HOST_ROOT(預設 /mnt/nas-docker/giga-files/test,cifs 掛載由 host2-mount-nas.sh 建立)
+#   bind mount 到 /data/backup;根目錄沒有標記檔 .giga-files-backup(NAS 未掛載)時備份整輪跳過,不會寫到本機
+#   NAS 掛載晚於容器啟動時,容器看不到掛載,需 --force-recreate
+# BPM 附件(F6):測試區 191(BPM_TEST_*)、正式區 190(BPM_PROD_*),file.env 有 {前綴}DB_HOST 才啟用該來源;
+#   機密在 FILE_SECRETS_DIR/bpm/{test,prod}_*(host2-set-bpm-secrets.sh test|prod 產生),以目錄唯讀掛載:
+#   未執行腳本前目錄為空、HOST 空白,該來源回 409,不影響部署
+# 舊檔匯入(F4;LEGACY-SWITCH-PLAN.md §3):另一個一次性服務 legacy-import(profile,不長駐),只有它掛 NAS 與 WebAppDb 密碼;
+#   長駐的 file-api 不掛(資安審查 2026-10-13:縮小免 Token 相容路由所在容器的可讀範圍)
+#   docker compose --env-file … -f file-api/deploy/docker-compose.yml --profile legacy-import run --rm legacy-import --source fb [--apply]
+#   NAS docker-folder 整個以唯讀掛到 /data/legacy(不個別掛子目錄:不存在時 Docker 會在 NAS 上建立目錄);
+#   WebAppDb 唯讀帳號密碼在 FILE_SECRETS_DIR/legacy/webappdb_password(host2-set-legacy-secrets.sh 產生),file.env 要有 WEBAPPDB_HOST
 # 機密(FILE_SECRETS_DIR,uid 1000 可讀;file-api/deploy/host2-set-secrets.sh 產生):
 #   file_db_password(file_app)、gw_api_key(Gateway CLI client:create --code file-api)、monitor_api_key(giga-observe 服務 file-api)
 # migration 由開發者電腦 npm run db:migrate 套用(file_migrate 不放測試區主機)
@@ -12,7 +23,8 @@ name: giganexus-file-${GW_ENV:?GW_ENV 必須設定(test / prod)}
 
 services:
   file-api:
-    image: giganexus/file-api:${IMAGE_TAG:-dev}
+    # 測試區在主機上建置(本機名稱);正式區 FILE_IMAGE_PREFIX=<GitLab Registry>/giganexus/giga-file-service,拉取 main 建置的映像檔
+    image: ${FILE_IMAGE_PREFIX:-giganexus}/file-api:${IMAGE_TAG:-dev}
     build:
       context: ..
       secrets: [npm_token]
@@ -28,6 +40,26 @@ services:
       FILE_ROOT: /data/files
       # 容量以 Windows 主機磁碟為準(WSL 虛擬磁碟上限 1 TB 不代表實際可用;STORAGE.md §1)
       HOST_DISK_PATH: /host-disk
+      BACKUP_ROOT: /data/backup
+      BACKUP_INTERVAL_MINUTES: ${FILE_BACKUP_INTERVAL_MINUTES:-5}
+      BACKUP_MAX_ATTEMPTS: ${FILE_BACKUP_MAX_ATTEMPTS:-5}
+      # 備份失敗告警收件人工號(逗號分隔);需 gw_api_key 有 notify.message.send 與範本 FILE_BACKUP_FAILED,未設定只記錄日誌
+      BACKUP_ALERT_USERS: ${FILE_BACKUP_ALERT_USERS:-}
+      BPM_TEST_DB_HOST: ${BPM_TEST_DB_HOST:-}
+      BPM_TEST_DB_PORT: ${BPM_TEST_DB_PORT:-1433}
+      BPM_TEST_DB_NAME: ${BPM_TEST_DB_NAME:-NaNa}
+      BPM_TEST_DB_USER: ${BPM_TEST_DB_USER:-file_bpm_ro}
+      BPM_TEST_DB_PASSWORD_FILE: /run/secrets/bpm/test_db_password
+      BPM_TEST_FILE_URL: ${BPM_TEST_FILE_URL:-}
+      BPM_TEST_FILE_API_KEY_FILE: /run/secrets/bpm/test_file_api_key
+      BPM_PROD_DB_HOST: ${BPM_PROD_DB_HOST:-}
+      BPM_PROD_DB_PORT: ${BPM_PROD_DB_PORT:-1433}
+      BPM_PROD_DB_NAME: ${BPM_PROD_DB_NAME:-NaNa}
+      BPM_PROD_DB_USER: ${BPM_PROD_DB_USER:-file_bpm_ro}
+      BPM_PROD_DB_PASSWORD_FILE: /run/secrets/bpm/prod_db_password
+      BPM_PROD_FILE_URL: ${BPM_PROD_FILE_URL:-}
+      BPM_PROD_FILE_API_KEY_FILE: /run/secrets/bpm/prod_file_api_key
+      BPM_DEFAULT_ENV: ${BPM_DEFAULT_ENV:-}
       FILE_DB_HOST: ${FILE_DB_HOST:?FILE_DB_HOST 必須設定}
       FILE_DB_PORT: ${FILE_DB_PORT:-1433}
       FILE_DB_NAME: ${FILE_DB_NAME:?FILE_DB_NAME 必須設定}
@@ -41,9 +73,45 @@ services:
       - ${FILE_HOST_ROOT:-/srv/giga-files/test}:/data/files
       # 主機 C: 上的空目錄(唯讀),只用來讀取磁碟容量;WSL 會自動建立
       - ${FILE_HOST_DISK_PROBE:-/mnt/c/giga-files-probe}:/host-disk:ro
+      - ${FILE_BACKUP_HOST_ROOT:-/mnt/nas-docker/giga-files/test}:/data/backup
+      - ${FILE_SECRETS_DIR}/bpm:/run/secrets/bpm:ro
     networks:
       gateway:
         aliases: [file-api]
+
+  legacy-import:
+    profiles: [legacy-import]
+    image: ${FILE_IMAGE_PREFIX:-giganexus}/file-api:${IMAGE_TAG:-dev}
+    restart: 'no'
+    entrypoint: ['node', 'dist/src/cli/legacy-import.js']
+    working_dir: /app
+    environment:
+      GW_ENV: ${GW_ENV}
+      SERVICE_CODE: file-api
+      GW_BASE_URL: ${GW_BASE_URL:?GW_BASE_URL 必須設定}
+      # SDK 在 test / prod 要求這兩項(loadGatewayEnv);CLI 不註冊、不呼叫 Gateway
+      GW_API_KEY_FILE: /run/secrets/gw_api_key
+      SERVICE_ADVERTISE_URL: http://file-api:51272
+      MONITOR_ENABLED: 'false'
+      FILE_ROOT: /data/files
+      FILE_DB_HOST: ${FILE_DB_HOST:?FILE_DB_HOST 必須設定}
+      FILE_DB_PORT: ${FILE_DB_PORT:-1433}
+      FILE_DB_NAME: ${FILE_DB_NAME:?FILE_DB_NAME 必須設定}
+      FILE_DB_USER: ${FILE_DB_USER:?FILE_DB_USER 必須設定}
+      FILE_DB_PASSWORD_FILE: /run/secrets/file_db_password
+      LEGACY_NAS_ROOT: /data/legacy
+      WEBAPPDB_HOST: ${WEBAPPDB_HOST:-}
+      WEBAPPDB_NAME: ${WEBAPPDB_NAME:-WebAppDb}
+      WEBAPPDB_USER: ${WEBAPPDB_USER:-file_legacy_ro}
+      WEBAPPDB_PASSWORD_FILE: /run/secrets/legacy/webappdb_password
+    secrets: [gw_api_key, file_db_password]
+    volumes:
+      - ${FILE_HOST_ROOT:-/srv/giga-files/test}:/data/files
+      - ${FILE_SECRETS_DIR}/legacy:/run/secrets/legacy:ro
+      - ${FILE_LEGACY_HOST_ROOT:-/mnt/nas-docker}:/data/legacy:ro
+      # 報表(含單號與檔名)寫在主機,不進映像
+      - ${FILE_LEGACY_REPORT_DIR:-/srv/giganexus/file-legacy-import}:/app/data/legacy-import
+    networks: [gateway]
 
 secrets:
   gw_api_key:

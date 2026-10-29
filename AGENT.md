@@ -40,6 +40,65 @@
 
 ---
 
+## Claude 子代理 — 必讀
+
+同 `../giga-api-gateway-bff/AGENT.md` §10.9(有出入時以該節為準)。**只適用 Claude Code**,Gemini 等其他 AI 略過本節。
+
+Claude 把搜尋、審查、資安檢查、除錯、測試、重構交給子代理,主對話只收結論。子代理定義放在**使用者層級** `~/.claude/agents/`(Windows:`%USERPROFILE%\.claude\agents\`),所有專案共用;範本在 `../giga-api-gateway-bff/docs/claude-agents/`。
+
+| 子代理 | 用途 | 模型 | 權限 |
+| --- | --- | --- | --- |
+| `explore` | 快速搜尋、分析大型程式碼庫結構 | `haiku`(Haiku 5.5) | 唯讀 |
+| `code-reviewer` | 檢查程式碼品質、命名與最佳實踐 | `sonnet`(Sonnet 5.5) | 唯讀 |
+| `security-auditor` | 偵測安全漏洞(硬編碼密鑰、注入、權限缺漏、不安全的 API) | `opus`(Opus 5.5) | 唯讀 |
+| `debugger` | 追蹤錯誤日誌,做根本原因分析 | `sonnet`(Sonnet 5.5) | 唯讀 |
+| `test-runner` | 執行既有測試並分析覆蓋率 | `haiku`(Haiku 5.5) | 唯讀(只執行指令,不改檔) |
+| `refactor-assistant` | 安全地重構與拆分模組 | `sonnet`(Sonnet 5.5) | 可修改檔案 |
+
+檔名是「子代理名稱 + `.md`」。模型欄寫別名,自動對應該系列的最新版(括號內是 2026-10 的版本)。
+
+**開工前檢查**(每個工作階段一次):
+
+1. 確認 `~/.claude/agents/` 有上表 6 個檔案。
+2. 缺少任何一個時,**先列出缺少的子代理,詢問使用者是否建立**;未經同意不要建立。使用者不建立時照常工作,改由主對話自己做。
+3. 使用者同意後,從範本複製缺少的檔案;**已存在的同名檔不覆蓋**(內容與範本不同時列出差異,詢問是否更新):
+
+   ```bash
+   mkdir -p ~/.claude/agents && cp -n ../giga-api-gateway-bff/docs/claude-agents/*.md ~/.claude/agents/
+   ```
+
+   範本不在工作區(沒有 clone `giga-api-gateway-bff`)時,說明「範本未讀取」,詢問使用者要先 clone 該 repo,還是依上表欄位建立。
+4. 建立後告訴使用者:**重新開啟 Claude Code 工作階段**後子代理才會載入。
+
+**何時使用**:
+
+| 情境 | 子代理 |
+| --- | --- |
+| 不熟的模組、要跨多個目錄找東西、回答「X 在哪裡 / 怎麼串」 | `explore` |
+| 一批修改完成、commit 前 | `code-reviewer` |
+| 動到登入、權限(RBAC)、Token / API Key、機密與 `.env*`、檔案上傳下載、對外 API、Nginx / 部署設定 | `security-auditor`(可與 `code-reviewer` 同時進行) |
+| 錯誤 log、測試失敗或線上異常,原因不明 | `debugger` |
+| 修改後跑 lint / 型別檢查 / 測試、查覆蓋率 | `test-runner` |
+| 改名、搬檔、拆模組等不改變行為的重構 | `refactor-assistant` |
+
+- 單一檔案、位置已知的小任務不必開子代理。
+- 子代理看不到主對話的內容:委派時寫清楚任務範圍,以及本 AGENT.md 的相關規則(外科手術式修改、跨 repo 修改要先同意、測試失敗不得改測試、寫入測試區或共用資料庫前要先問)。
+- 子代理的結果由主對話**檢查後**才採用或回報;回報時說明哪些是子代理做的。子代理回報「通過」不等於已驗證。
+- 子代理不經手密碼與機密值;`security-auditor` 回報時遮蔽密鑰,只寫檔案與行號。
+
+---
+
+## Git 分支與推送 — 必讀
+
+同 `../giga-api-gateway-bff/AGENT.md` §10.10(有出入時以該節為準);同仁操作步驟見工作區 `../BackToNas/同仁開發指南.md`。
+
+- 開發在工作分支(`feature/*`、`fix/*`、`docs/*`、`refactor/*`),從最新的 `origin/develop` 開。目前在 `develop` / `main` 而任務要改檔時,**先詢問使用者要開哪個分支**,不要直接提交。
+- 只推送工作分支;`develop`、`main` **只透過 GitLab Merge Request 由 Maintainer 合併**。AI 不得推送 `develop` / `main`(使用者在本次對話明確指示且為 Maintainer 除外),不得 force push 或改寫已推送的提交;推送被拒時不找繞過方式。
+- **本 repo 部署**:合併到 `develop` → CI 自動部署測試區(主機 2);合併到 `main` → 主機 2 建置映像檔推送 Registry(`build-prod`),再手動執行 `deploy-prod`(主機 3 拉取並更新 file-api;第一次部署步驟見 `docs/DEPLOYMENT.md` §2.2)。測試區共用,合併前提醒使用者在群組告知。
+- 提交前確認 diff 只含本次任務的檔案,不提交 `.env*` 與任何機密;提交訊息用 `<type>(<scope>): <中文說明>`。
+
+---
+
 ## 0. 專案定位(先讀)
 
 | 項目 | 內容 |
@@ -113,7 +172,7 @@
 | 日誌等級預設 | `debug` | `info` | `info` |
 
 - 部署區只有這三個值;不要新增 `staging`、`product` 之類的名稱。缺少必要設定時**啟動失敗**,不要加預設值繞過檢查。
-- 部署沿用 Gateway 的 GitLab 流程:`develop` → 主機 2 測試區,`main` → 主機 3 正式區,容器加入 Gateway Docker 網路(`../giga-api-gateway-bff/docs/DEPLOYMENT.md`、BACKEND-GUIDE §3.1)。**本 repo 目前尚未建立 GitLab remote。**
+- 部署沿用 Gateway 的 GitLab 流程:`develop` → 主機 2 測試區,`main` → 主機 3 正式區,容器加入 Gateway Docker 網路(`../giga-api-gateway-bff/docs/DEPLOYMENT.md`、BACKEND-GUIDE §3.1)。正式區不在主機 3 建置(連不到 Docker Hub / npmjs),由 `main` 的 `build-prod` 在主機 2 建置推送 Registry。
 - 上傳走 Nginx `auth_request` 直送 file-api、放寬到 31m(單檔 30 MB 加 multipart 表頭)(D4-B)需要改 Gateway 的 `nginx/`:**跨 repo 修改,先說明並取得同意**;BFF 全域 10 MB 限制不動。
 - 主機連線慣例(`ssh host1` / `host2`、WSL 內 Docker 指令)見工作區 `../AGENT.md` §5;需要 root 的指令請本人執行。
 

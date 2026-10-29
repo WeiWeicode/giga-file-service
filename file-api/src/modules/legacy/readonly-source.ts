@@ -5,7 +5,7 @@
  */
 import { createHash } from 'node:crypto';
 import { createReadStream, type Dirent, type Stats } from 'node:fs';
-import { readdir, stat } from 'node:fs/promises';
+import { lstat, readdir, stat } from 'node:fs/promises';
 import path from 'node:path';
 import type { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
@@ -13,12 +13,15 @@ import { pipeline } from 'node:stream/promises';
 export interface ReadonlyFs {
   readdir(dir: string): Promise<Dirent[]>;
   stat(p: string): Promise<Stats>;
+  /** 不跟隨符號連結 */
+  lstat(p: string): Promise<Stats>;
   openRead(p: string): Readable;
 }
 
 export const nodeReadonlyFs: ReadonlyFs = {
   readdir: (dir) => readdir(dir, { withFileTypes: true }),
   stat: (p) => stat(p),
+  lstat: (p) => lstat(p),
   openRead: (p) => createReadStream(p, { flags: 'r' }),
 };
 
@@ -84,6 +87,29 @@ export class ReadonlySource {
         }
       }
     }
+  }
+
+  /** 單一檔案的屬性;不存在、不是一般檔案或是符號連結回 null(F4 匯入對照用;連結可能指到來源以外,不跟隨) */
+  async fileStat(rel: string): Promise<{ size: number; mtime: Date } | null> {
+    try {
+      const s = await this.fs.lstat(this.full(rel));
+      return s.isFile() ? { size: s.size, mtime: s.mtime } : null;
+    } catch {
+      return null;
+    }
+  }
+
+  async isDir(rel: string): Promise<boolean> {
+    try {
+      return (await this.fs.stat(this.full(rel))).isDirectory();
+    } catch {
+      return false;
+    }
+  }
+
+  /** 以唯讀模式開檔(F4 匯入複製用) */
+  openRead(rel: string): Readable {
+    return this.fs.openRead(this.full(rel));
   }
 
   async sha256(rel: string): Promise<string> {

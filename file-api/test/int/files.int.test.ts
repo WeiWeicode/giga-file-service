@@ -6,11 +6,15 @@
  * 不可指向 giganexus_gw_test(開發與測試區共用);也不碰 gw.*。
  */
 import assert from 'node:assert/strict';
+import { readdirSync } from 'node:fs';
 import { after, before, describe, it } from 'node:test';
 import type sql from 'mssql';
 import { createDb, openPool } from '../../src/db/client.js';
 import { migrateSqlConfig, runMigrations } from '../../src/migrate.js';
+import { DrizzleCompatRepo } from '../../src/modules/compat/drizzle-repo.js';
+import type { NewCompatFile } from '../../src/modules/compat/types.js';
 import { DrizzleFileRepo } from '../../src/modules/files/drizzle-repo.js';
+import { DrizzleLegacyRepo } from '../../src/modules/legacy/legacy-repo.js';
 import type { NewFile } from '../../src/modules/files/types.js';
 import { buildTestApp, multipart, PDF, startJwks, user, type Jwks, type TestApp } from '../helpers.js';
 
@@ -22,6 +26,7 @@ if (database === process.env.FILE_DB_NAME || database === 'giganexus_gw_test' ||
 const migrateCfg = migrateSqlConfig(process.env, database);
 let pool: sql.ConnectionPool;
 let repo: DrizzleFileRepo;
+let compatRepo: DrizzleCompatRepo;
 let jwks: Jwks;
 let t: TestApp;
 
@@ -69,8 +74,9 @@ before(async () => {
     { appName: 'giganexus-file-int', poolMax: 4 },
   );
   repo = new DrizzleFileRepo(createDb(pool, true));
+  compatRepo = new DrizzleCompatRepo(createDb(pool, true));
   jwks = await startJwks();
-  t = await buildTestApp(jwks, { repo });
+  t = await buildTestApp(jwks, { repo, compat: compatRepo });
 });
 
 after(async () => {
@@ -84,7 +90,8 @@ describe('DrizzleFileRepo(SQL Server 2012,schema file_svc)', () => {
 
   it('migration 紀錄在 file_svc.__file_migrations,app 帳號讀不到 gw.*', async () => {
     const r = await pool.request().query(`SELECT COUNT(*) AS n FROM file_svc.__file_migrations`);
-    assert.equal(r.recordset[0].n, 1);
+    // 每個 migration 目錄一筆紀錄(db/migrations/*)
+    assert.equal(r.recordset[0].n, readdirSync(new URL('../../db/migrations/', import.meta.url)).length);
     await assert.rejects(pool.request().query('SELECT TOP 1 * FROM gw.api_route'), /permission|權限|Invalid object/i);
   });
 
@@ -133,6 +140,35 @@ describe('DrizzleFileRepo(SQL Server 2012,schema file_svc)', () => {
     assert.equal(s.backup.pending, s.files);
     assert.ok(s.bytes >= 40);
   });
+
+  it('NAS 備份狀態:累計失敗達門檻改 failed、重試歸零、已備份逐批掃描', async () => {
+    const a = file({});
+    const b = file({});
+    const gone = file({});
+    await repo.insertMany([a, b, gone], []);
+    await repo.softDelete(gone.fileUuid, 'S112009', new Date(), null);
+    const pending = (await repo.pendingBackups(1000)).map((f) => f.fileUuid);
+    assert.ok(pending.includes(a.fileUuid) && pending.includes(b.fileUuid));
+    assert.ok(!pending.includes(gone.fileUuid), '已刪除的不備份');
+
+    assert.deepEqual(await repo.markBackupAttempt(a.fileUuid, 2), { status: 'pending', attempts: 1 });
+    assert.deepEqual(await repo.markBackupAttempt(a.fileUuid, 2), { status: 'failed', attempts: 2 });
+    const at = new Date('2026-10-08T06:00:00Z');
+    await repo.markBackupDone(b.fileUuid, at);
+    const gotB = await repo.findActive(b.fileUuid);
+    assert.equal(gotB?.backupStatus, 'done');
+    assert.equal(gotB?.backupAt?.toISOString(), at.toISOString());
+    assert.equal((await repo.stats()).failedItems[0]?.fileUuid, a.fileUuid);
+
+    assert.equal(await repo.retryBackups([b.fileUuid]), 0, 'done 的不受重試影響');
+    assert.equal(await repo.retryBackups(null), 1);
+    assert.equal((await repo.findActive(a.fileUuid))?.backupStatus, 'pending');
+    assert.deepEqual(await repo.markBackupAttempt(a.fileUuid, 2), { status: 'pending', attempts: 1 }, '重試後次數歸零');
+
+    const first = await repo.backedUp(0, 1);
+    assert.equal(first[0]?.fileUuid, b.fileUuid);
+    assert.equal((await repo.backedUp(first[0]!.id, 10)).length, 0);
+  });
 });
 
 describe('完整 API 經 SQL Server(上傳 → 綁定 → 下載 → 刪除)', () => {
@@ -154,5 +190,119 @@ describe('完整 API 經 SQL Server(上傳 → 綁定 → 下載 → 刪除)', (
       logs.recordset.map((r: { action: string }) => r.action),
       ['upload', 'bind', 'download', 'delete'],
     );
+  });
+});
+
+const legacyFile = (id: number, over: Partial<NewCompatFile> = {}): NewCompatFile => ({
+  ...file({ refNo: `SP-${id}`, sourceSystem: 'Web', uploadedBy: 'S100001', companyId: null, boundAt: new Date('2026-10-01T00:00:00Z') }),
+  compatNs: 'smb',
+  compatKey: `電子發票設定-${id}.pdf`,
+  meta: {
+    id,
+    filename: `電子發票設定-${id}.pdf`,
+    path: `電子發票設定-${id}.pdf`,
+    destination: '根目錄',
+    description: '說明',
+    version: '1.0',
+    userAgent: null,
+    ip: null,
+    mimetype: 'application/pdf',
+    storageType: 'Local',
+    nasPath: null,
+  },
+  ...over,
+});
+
+describe('DrizzleCompatRepo(SQL Server 2012;相容層與 F4 匯入)', () => {
+  it('insertLegacy 同一交易寫 file_object + legacy_file_map;以 path、舊 id 查得到,中文與 JSON meta 原樣', async () => {
+    const f = legacyFile(31);
+    await compatRepo.insertLegacy(f, {
+      fileUuid: f.fileUuid,
+      legacySource: 'smbbackend',
+      legacyDir: null,
+      legacyName: f.compatKey,
+      legacyDb: 'WebAppDb',
+      legacyTable: 'smbFileUpload',
+      legacyKey: '31',
+      sizeBytes: 10,
+      mtimeUtc: new Date('2026-10-01T00:00:00Z'),
+      sha256: 'a'.repeat(64),
+      nasPath: f.compatKey,
+      at: new Date(),
+    });
+    const byPath = await compatRepo.findByKey('smb', '電子發票設定-31.pdf');
+    assert.equal(byPath?.fileUuid, f.fileUuid);
+    assert.equal(byPath?.meta.id, 31);
+    assert.equal(byPath?.meta.destination, '根目錄');
+    assert.equal((await compatRepo.findByLegacyId('smb', '31'))?.fileUuid, f.fileUuid);
+    assert.equal((await compatRepo.findByUuid('smb', f.fileUuid))?.compatKey, '電子發票設定-31.pdf');
+    assert.equal((await compatRepo.importedKeys('smbbackend')).get('31')?.deleted, false);
+    // 同一舊 id 再匯入一次:legacy_file_map 的檔名篩選唯一索引擋下,整筆交易回滾
+    const dup = legacyFile(31, { fileUuid: crypto.randomUUID() });
+    await assert.rejects(
+      compatRepo.insertLegacy(dup, {
+        fileUuid: dup.fileUuid,
+        legacySource: 'smbbackend',
+        legacyDir: null,
+        legacyName: f.compatKey,
+        legacyDb: 'WebAppDb',
+        legacyTable: 'smbFileUpload',
+        legacyKey: '31',
+        sizeBytes: 10,
+        mtimeUtc: new Date(),
+        sha256: 'a'.repeat(64),
+        nasPath: f.compatKey,
+        at: new Date(),
+      }),
+    );
+    assert.equal(await compatRepo.findByUuid('smb', dup.fileUuid), null);
+  });
+
+  it('list 依命名空間、單號、有效狀態篩選;softDelete 後 effective=false 查得到', async () => {
+    const f = legacyFile(32);
+    await compatRepo.insert([f], []);
+    assert.equal((await compatRepo.list({ ns: 'smb', refNo: 'SP-32', effective: true, offset: 0, limit: 10 })).total, 1);
+    assert.equal((await compatRepo.list({ ns: 'fb', refNo: 'SP-32', offset: 0, limit: 10 })).total, 0);
+    assert.equal(await compatRepo.softDelete(f.fileUuid, 'compat', new Date(), null), true);
+    assert.equal((await compatRepo.list({ ns: 'smb', refNo: 'SP-32', effective: false, offset: 0, limit: 10 })).total, 1);
+    assert.equal(await compatRepo.findByKey('smb', f.compatKey), null);
+    assert.equal((await compatRepo.findByKey('smb', f.compatKey, true))?.fileUuid, f.fileUuid);
+  });
+
+  it('經相容層 API:fb 上傳 → /sql-files → 下載 → 刪除(不帶內部 Token)', async () => {
+    const body = await multipart([{ name: '報價單.pdf', content: PDF }], {
+      platform: 'BPM',
+      sourceApplication: '太陽能ECRECN_規格',
+      sourceNumber: 'ECR-INT-1',
+      userNumber: 'S112009',
+    });
+    const up = await t.app.inject({ method: 'POST', url: '/compat/fb/sql-upload', payload: body.payload, headers: body.headers });
+    assert.equal(up.statusCode, 200, up.body);
+    const id = up.json().file.id;
+    const list = (await t.app.inject('/compat/fb/sql-files')).json();
+    assert.ok(list.files.some((x: { id: string; sourceApplication: string }) => x.id === id && x.sourceApplication === '太陽能ECRECN_規格'));
+    assert.equal((await t.app.inject(`/compat/fb/sql-download/${id}`)).statusCode, 200);
+    assert.equal((await t.app.inject({ method: 'DELETE', url: `/compat/fb/sql-delete/${id}` })).json().success, true);
+    assert.equal((await t.app.inject(`/compat/fb/sql-download/${id}`)).statusCode, 404);
+  });
+});
+
+describe('DrizzleLegacyRepo(SQL Server 2012;「舊系統」Tab)', () => {
+  it('清單關鍵字(含 LIKE 萬用字元跳脫)、摘要彙總、find', async () => {
+    const legacy = new DrizzleLegacyRepo(createDb(pool, true));
+    // 前一個 describe 已匯入 smbbackend 舊 id 31(單號 SP-31)
+    const hit = await legacy.list({ source: 'smbbackend', q: 'SP-31', page: 1, pageSize: 10 });
+    assert.equal(hit.total, 1);
+    assert.equal(hit.items[0]!.legacyKey, '31');
+    assert.equal(hit.items[0]!.isCurrent, true);
+    assert.equal((await legacy.list({ q: '%', page: 1, pageSize: 10 })).total, 0, '% 視為字面字元');
+    assert.equal((await legacy.list({ source: 'filebackend', page: 1, pageSize: 10 })).total, 0);
+    const sum = await legacy.summary();
+    const smb = sum.find((x) => x.source === 'smbbackend')!;
+    assert.equal(smb.files, 1);
+    assert.equal(smb.bytes, 10);
+    assert.equal(smb.backup.pending, 1);
+    assert.ok(smb.lastImportedAt instanceof Date);
+    assert.equal((await legacy.find(hit.items[0]!.fileUuid))?.legacyName, '電子發票設定-31.pdf');
   });
 });

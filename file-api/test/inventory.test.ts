@@ -137,6 +137,7 @@ describe('舊來源唯讀盤點(inventory.feature)', () => {
     const spy: ReadonlyFs = {
       readdir: (d) => (calls.add('readdir'), nodeReadonlyFs.readdir(d)),
       stat: (p) => (calls.add('stat'), nodeReadonlyFs.stat(p)),
+      lstat: (p) => (calls.add('lstat'), nodeReadonlyFs.lstat(p)),
       openRead: (p) => (calls.add('openRead'), nodeReadonlyFs.openRead(p)),
     };
     await scanSource({ name: 'filebackend', root }, { hash: true, fs: spy });

@@ -10,12 +10,19 @@ import swagger from '@fastify/swagger';
 import { createTokenVerifier, errorBody, INTERNAL_TOKEN_HEADER, type DepStatus, type GatewayIdentity } from '@giganexus/backend-sdk';
 import { setupGateway } from '@giganexus/backend-sdk/fastify';
 import Fastify, { type FastifyInstance, type FastifyRequest } from 'fastify';
+import { compatPlugin } from './compat/plugin.js';
 import type { Config } from './config.js';
 import { AppError } from './errors.js';
+import type { BackupService } from './modules/backup/backup-service.js';
+import type { BpmSources } from './modules/bpm/bpm-service.js';
+import type { CompatService } from './modules/compat/compat-service.js';
+import type { LegacyService } from './modules/legacy/legacy-service.js';
 import type { Actor, FileService } from './modules/files/file-service.js';
 import { PathEscapeError } from './modules/storage/local-store.js';
 import { swaggerOptions } from './openapi.js';
+import { bpmRoutes } from './routes/bpm.js';
 import { fileRoutes } from './routes/files.js';
+import { legacyRoutes } from './routes/legacy.js';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -33,6 +40,14 @@ const DEV_IDENTITY: GatewayIdentity = { sub: 'dev', emp: 'dev', name: '本機開
 export interface AppOptions {
   config: Pick<Config, 'gateway' | 'monitor' | 'logLevel' | 'devSkipToken' | 'maxFileBytes' | 'maxFilesPerRequest'>;
   service: FileService;
+  /** null = 此環境未設定 NAS 備份 */
+  backup?: BackupService | null;
+  /** null = 未設定任何 BPM 附件來源(F6) */
+  bpm?: BpmSources | null;
+  /** 舊格式相容層(API.md §4);null = 不提供 /compat/* */
+  compat?: CompatService | null;
+  /** 舊系統匯入檔案查詢(「舊系統」Tab);null 時 /legacy/* 回 409 */
+  legacy?: LegacyService | null;
   /** 就緒檢查:SQL Server、檔案根目錄可用 */
   readiness?: () => Promise<{ ok: boolean; checks: Record<string, string> }>;
   deps?: () => Promise<DepStatus[]>;
@@ -128,6 +143,9 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
   });
   app.get('/openapi.json', noAuth, async () => app.swagger());
 
-  await app.register(fileRoutes(service, actorOf, config.maxFileBytes));
+  await app.register(fileRoutes(service, actorOf, config.maxFileBytes, opts.backup ?? null));
+  await app.register(bpmRoutes(opts.bpm ?? null, actorOf));
+  await app.register(legacyRoutes(opts.legacy ?? null, actorOf));
+  if (opts.compat) await app.register(compatPlugin(opts.compat, config.maxFileBytes));
   return app;
 }

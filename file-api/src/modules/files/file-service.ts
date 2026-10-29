@@ -6,6 +6,7 @@
 import { randomUUID } from 'node:crypto';
 import type { Readable } from 'node:stream';
 import { AppError, accessDenied, notFound } from '../../errors.js';
+import type { BackupStore } from '../storage/backup-store.js';
 import { LocalStore, type Capacity, type TempFile } from '../storage/local-store.js';
 import { canInline, checkFileType, contentDisposition, DEFAULT_ALLOWED_EXTS, sanitizeOriginalName } from './file-types.js';
 import { inScope, type FileRecord, type FileRepo, type ListFilter, type NewFile, type Scope, type StorageStats } from './types.js';
@@ -33,6 +34,8 @@ export interface UploadFields {
 export interface FileServiceOptions {
   repo: FileRepo;
   store: LocalStore;
+  /** NAS 備份;清除未綁定暫存檔時一併移除其備份 */
+  nas?: BackupStore | null;
   allowedExts?: readonly string[] | null;
   tempRetentionHours: number;
   now?: () => Date;
@@ -44,6 +47,7 @@ const CODE_RE = /^[a-z][a-z0-9_-]{0,49}$/;
 export class FileService {
   private readonly repo: FileRepo;
   readonly store: LocalStore;
+  private readonly nas: BackupStore | null;
   private readonly allowed: readonly string[];
   private readonly retentionMs: number;
   private readonly now: () => Date;
@@ -51,6 +55,7 @@ export class FileService {
   constructor(opts: FileServiceOptions) {
     this.repo = opts.repo;
     this.store = opts.store;
+    this.nas = opts.nas ?? null;
     this.allowed = opts.allowedExts ?? DEFAULT_ALLOWED_EXTS;
     this.retentionMs = opts.tempRetentionHours * 3600_000;
     this.now = opts.now ?? (() => new Date());
@@ -165,7 +170,7 @@ export class FileService {
     if (!changed) throw notFound();
   }
 
-  /** 清除超過保留時數仍未綁定的暫存檔:標記刪除後移除實體檔;回傳處理筆數 */
+  /** 清除超過保留時數仍未綁定的暫存檔:標記刪除後移除實體檔(含 NAS 備份);回傳處理筆數 */
   async cleanupTemps(limit = 500): Promise<number> {
     const before = new Date(this.now().getTime() - this.retentionMs);
     const expired = await this.repo.expiredTemps(before, limit);
@@ -174,6 +179,8 @@ export class FileService {
       const changed = await this.repo.softDelete(f.fileUuid, 'system:temp-cleanup', this.now(), null);
       if (!changed) continue;
       await this.store.remove(f.storageKey);
+      // 暫存檔不是正式資料,NAS 上的備份一併移除(軟刪除的正式檔案不動 NAS)
+      if (this.nas && f.backupStatus === 'done') await this.nas.remove(f.storageKey);
       n++;
     }
     return n;

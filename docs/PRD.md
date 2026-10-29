@@ -11,8 +11,8 @@
 | 項目 | 內容 |
 | --- | --- |
 | 產品名稱 | GigaNexus 附件服務(repo `giga-file-service`,服務 `file-api`) |
-| 文件版本 | **v0.9**(2026-10-08) |
-| 版本紀錄 | v0.9(2026-10-08,D3 單檔上限由 50 MB 改為 30 MB(使用者測試後指示);D4-B 上傳直送已實作(Gateway Nginx `location = /api/file/files` + BFF `/_auth/verify` 補驗 CSRF));v0.8(2026-10-08,D7 改為沿用 Gateway 資料庫 `giganexus_gw` 的獨立 schema `file_svc`,不另建資料庫;新增 D17:本服務資料表用 Drizzle ORM、舊資料庫唯讀查詢用 `mssql`);v0.7(2026-10-08,原 `FILE-PLAN.md` 依 Gateway `docs/` 做法拆分為 PRD + 主題文件(§12 對照表);新增 D16:畫面放 GigaItApp「Gateway 管理」目錄下的「檔案管理」選單(§8));v0.6(2026-10-08,納入 `smbFileUpload` 統計、相容層規則 12);v0.5(2026-10-08,`webFileUpload` 依平台 / 應用統計、相容層規則 10–11);v0.4(2026-10-08,122 生產區 log 觀察、相容層規則 8、9);v0.3(2026-10-08,D2–D15 定案);v0.2(2026-10-07,納入 BPM 表單附件);v0.1(2026-10-07,初稿) |
+| 文件版本 | **v1.0**(2026-10-13) |
+| 版本紀錄 | v1.0(2026-10-13,filebackend / SMBbackend 接手(F4 + F7)規劃與決定,見 [LEGACY-SWITCH-PLAN.md](LEGACY-SWITCH-PLAN.md):舊前端經 `bpmcomonent` Nginx 反向代理到 Gateway(同來源,不需 CORS)、相容路由由 Gateway Nginx 以內網白名單直送 file-api(§11 #15、#16 定案)、`WebAppDb` 唯讀帳號由使用者建立;相容層與匯入工具實作);v0.9(2026-10-08,D3 單檔上限由 50 MB 改為 30 MB(使用者測試後指示);D4-B 上傳直送已實作(Gateway Nginx `location = /api/file/files` + BFF `/_auth/verify` 補驗 CSRF));v0.8(2026-10-08,D7 改為沿用 Gateway 資料庫 `giganexus_gw` 的獨立 schema `file_svc`,不另建資料庫;新增 D17:本服務資料表用 Drizzle ORM、舊資料庫唯讀查詢用 `mssql`);v0.7(2026-10-08,原 `FILE-PLAN.md` 依 Gateway `docs/` 做法拆分為 PRD + 主題文件(§12 對照表);新增 D16:畫面放 GigaItApp「Gateway 管理」目錄下的「檔案管理」選單(§8));v0.6(2026-10-08,納入 `smbFileUpload` 統計、相容層規則 12);v0.5(2026-10-08,`webFileUpload` 依平台 / 應用統計、相容層規則 10–11);v0.4(2026-10-08,122 生產區 log 觀察、相容層規則 8、9);v0.3(2026-10-08,D2–D15 定案);v0.2(2026-10-07,納入 BPM 表單附件);v0.1(2026-10-07,初稿) |
 | 相關文件 | Gateway [BACKEND-GUIDE.md](../../giga-api-gateway-bff/docs/BACKEND-GUIDE.md) §2.1、§3、§4、[DEPLOYMENT.md](../../giga-api-gateway-bff/docs/DEPLOYMENT.md) §6、[FRONTEND-GUIDE.md](../../giga-api-gateway-bff/docs/FRONTEND-GUIDE.md) §7.5;GigaItApp `docs/UI-GUIDE.md`;舊系統 `GeneralBackend/filebackend`、`GeneralBackend/SMBbackend`、`old_PortalSolar` |
 
 ## 2. 產品概述
@@ -55,7 +55,7 @@
 | D7 | 資料庫 | **沿用 Gateway 的 `giganexus_gw`**(正式)/ `giganexus_gw_test`(開發 + 測試)/ `giganexus_gw_poc_test`(整合測試),資料表放獨立 schema **`file_svc`**;只有少量資料表,不另建資料庫。帳號為本服務自有、只授權 `file_svc`,分 app / migrate;migration 紀錄表與 Gateway 分開([DATABASE.md](DATABASE.md) §0、§0.2) | ✅ 定案(2026-10-08 改;建 schema 與帳密由使用者執行) |
 | D8 | 舊系統 UUID | **新服務建對照表 `legacy_file_map`,不改舊資料表**([DATABASE.md](DATABASE.md) §3) | ✅ 採用;逐系統去留 F4 決策 |
 | D9 | 舊服務 | 照常運作、**程式碼一律不修改**(含 SMB `localdownload` 路徑問題,只記錄) | ✅ 定案:風險靠「新服務上線後舊服務下線」處理 |
-| D10 | BPM 附件怎麼接 | **file-api 直接查 NaNa(唯讀帳號)並向 5144 取檔、串流回傳**,不經 BPMbackend;5144 金鑰只放 file-api 機密設定;測試區 → 191、正式區 → 190([API.md](API.md) §3) | ✅ 採用 |
+| D10 | BPM 附件怎麼接 | **file-api 直接查 NaNa(唯讀帳號)並向 5144 取檔、串流回傳**,不經 BPMbackend;5144 金鑰只放 file-api 機密設定;來源以 `?env=` 選擇:測試區 191、正式區 190 可同時設定(2026-10-08 使用者決定測試區畫面也可查正式區 190,唯讀)([API.md](API.md) §3) | ✅ 採用 |
 | D11 | BPM 附件要不要複製一份 | **先不複製**(即時代理);若 5144 不穩或需長期保存,再改為「第一次下載時快取到 WSL 並寫 `legacy_file_map`」 | ✅ 採用 |
 | D12 | BPM 附件的權限 | 第一版:有 `file.bpm.read` 的人可依單號查詢 / 下載;「只能看自己是申請人或簽核人的表單」列為後續 | ✅ 定案 |
 | D13 | 舊檔怎麼進新服務 | **從 NAS 備份拉取**(SMB → `CP`、filebackend → `docker-folder` 各平台目錄),唯讀掛載、先乾跑對照 DB、再複製;不碰 122 主機與舊程式([MIGRATION.md](MIGRATION.md) §2) | ✅ 定案(方向);NAS 唯讀帳號與備份頻率待確認 |
@@ -86,25 +86,25 @@ file-api(:51272)位於 Gateway 之後:一般 API 經 BFF 轉發(`X-Internal-Toke
 | Tab | 內容 | 綁定權限 |
 | --- | --- | --- |
 | 檔案清單 | 新服務的檔案;篩選、上傳、下載、刪除;顯示備份狀態 | `file.object.read`;按鈕 `upload` / `delete` |
-| BPM 附件 | 輸入單號查詢表單附件、下載;顯示來源環境(190 正式 / 191 測試) | `file.bpm.read` |
-| 舊系統 | filebackend / SMB / PortalSolar / SDSFILES 盤點結果(數量、容量、是否已對照 UUID),唯讀 | `file.legacy.read` |
+| BPM 附件 | 切換來源(191 測試 / 190 正式)、輸入單號查詢表單附件、下載 / 預覽 | `file.bpm.read` |
+| 舊系統(F4) | filebackend / SMB / PortalSolar / SDSFILES 盤點結果(數量、容量、是否已對照 UUID),唯讀 | `file.legacy.read` |
 | 儲存與備份 | WSL 用量、NAS 備份成功 / 待補 / 失敗、重試 | `file.storage.read`;按鈕 `retry` |
 
-權限節點(規劃,F3 寫入 GigaItApp `deploy/gateway-rbac.yaml`,沿用 `it.gw-*` 命名;節點名稱、排序可在「選單管理」調整):
+權限節點(已寫入 GigaItApp `deploy/gateway-rbac.yaml`:檔案清單、上傳、刪除、儲存與備份、重試 2026-10-08 上線;BPM 附件隨 F6、舊系統隨 F4;沿用 `it.gw-*` 命名;節點名稱、排序可在「選單管理」調整):
 
 | 代碼 | 名稱 | kind | parent | sort | includes |
 | --- | --- | --- | --- | --- | --- |
 | `it.gw-file.read` | 檔案管理 | menu | `it.group.gateway` | 40 | — |
 | `it.gw-file.objects` | 檔案清單 | tab | `it.gw-file.read` | 10 | `file.object.read` |
-| `it.gw-file.upload` | 上傳 | button | `it.gw-file.objects` | 10 | `file.object.upload` |
+| `it.gw-file.upload` | 上傳 / 綁定單號 | button | `it.gw-file.objects` | 10 | `file.object.upload` |
 | `it.gw-file.delete` | 刪除 | button | `it.gw-file.objects` | 20 | `file.object.delete` |
 | `it.gw-file.bpm` | BPM 附件 | tab | `it.gw-file.read` | 20 | `file.bpm.read` |
 | `it.gw-file.legacy` | 舊系統 | tab | `it.gw-file.read` | 30 | `file.legacy.read` |
 | `it.gw-file.storage` | 儲存與備份 | tab | `it.gw-file.read` | 40 | `file.storage.read` |
-| `it.gw-file.retry` | 重試備份 | button | `it.gw-file.storage` | 10 | `file.storage.manage` |
+| `it.gw-file.backup-retry` | 重試 NAS 備份 | button | `it.gw-file.storage` | 10 | `file.storage.manage` |
 
 - `file.*` 權限代碼由 file-api 的 OpenAPI `x-permission` 產生([API.md](API.md) §1.1);節點綁定規則見 Gateway FRONTEND-GUIDE §7.5。
-- **F3 前不先寫入 `gateway-rbac.yaml`**:CI 每次部署都會套用該檔,沒有頁面與 API 時先建選單會出現空頁。
+- **頁面與 API 完成前不寫入 `gateway-rbac.yaml`**:CI 每次部署都會套用該檔,先建選單會出現空頁(BPM 附件、舊系統 Tab 隨 F6、F4 才加)。
 - 畫面沿用 GigaItApp `docs/UI-GUIDE.md`;上傳元件(拖放、多檔、進度、大小 / 類型檢查)做成可複製的元件,之後放進 `@giganexus/web-kit` 給入口網與其他系統用。
 
 ## 9. 安全摘要
@@ -144,8 +144,9 @@ file-api(:51272)位於 Gateway 之後:一般 API 經 BFF 轉發(`X-Internal-Toke
 12. 166 的**唯讀**服務帳號(同步只讀不寫);要同步的目錄範圍(依 F0 結果,例如 `ESLearning` 影片、`PersonalPic` 員工照片、`html`、`EIP` 是否納入)。
 13. 同名被覆蓋時保留舊版(建議)還是只留最新;每日增量的時段;正式切換日與 166 上傳凍結的方式。
 14. 舊服務使用者**已確認**([LEGACY-INVENTORY.md](LEGACY-INVENTORY.md) §4):兩個舊服務的資料列全部是 BPM 表單前端。**2026-10-08 NAS 盤點**(§6.1):`CRM`、`MES` 為空目錄、沒有 `ERP`;`CP` 有 101 個檔案(資料表 83 筆)、filebackend 110 個(資料表 151 筆),逐筆對照待 `WebAppDb` 唯讀帳號。
-15. 相容路由 `auth_mode = public` 與 Nginx 內網白名單([API.md](API.md) §4.4 規則 4)是否接受。
-16. Gateway 的 CORS 白名單可否加入 BPM 前端來源並暴露 `Content-Disposition`(規則 9);相容層 `/sql-files` 無 `limit` 時回全部(規則 8)是否接受。
+15. 相容路由 `auth_mode = public` 與 Nginx 內網白名單([API.md](API.md) §4.4 規則 4)是否接受。**✅ 2026-10-13 接受**:改為由 Gateway Nginx 直接轉給 file-api(不經 BFF,不需在路由表設 `public`),白名單只放 `bpmcomonent` 所在主機(122)與開發機([LEGACY-SWITCH-PLAN.md](LEGACY-SWITCH-PLAN.md) §5 Q2)。
+16. Gateway 的 CORS 白名單可否加入 BPM 前端來源並暴露 `Content-Disposition`(規則 9);相容層 `/sql-files` 無 `limit` 時回全部(規則 8)是否接受。**✅ 2026-10-13**:不需 CORS — `bpmcomonent` 的 Nginx 反向代理 `/file-compat/` 到 Gateway,瀏覽器看到的是同一個來源(§5 Q1);規則 8 照規劃實作。
+17. 「舊系統」Tab 是否提供管理者上傳(補件到 BPM 表單,權限 `file.legacy.write`)、是否列出經相容層新上傳的檔案(2026-10-13 提出,[LEGACY-SWITCH-PLAN.md](LEGACY-SWITCH-PLAN.md) §8);目前唯讀。
 
 ## 12. 文件索引與拆分對照
 

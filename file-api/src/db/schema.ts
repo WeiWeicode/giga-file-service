@@ -47,10 +47,18 @@ export const fileObject = fileSvc.table(
     backupStatus: varchar('backup_status', { length: 10 }).notNull().default('pending'),
     backupAt: ts('backup_at'),
     backupAttempts: int('backup_attempts').notNull().default(0),
+    /** 舊格式相容層的命名空間(API.md §4.4):fb / smb;NULL = 新 API 的檔案 */
+    compatNs: varchar('compat_ns', { length: 10 }),
+    /** 相容層的查找鍵:fb = 舊整數 id 或新檔 UUID;smb = 舊 path(UUID 檔名或中文原檔名) */
+    compatKey: nvarchar('compat_key', { length: 300 }),
+    /** 舊欄位原樣回傳用(JSON 字串,只在應用層解析;2012 無 JSON 函式):description、version、mimetype… */
+    legacyMeta: nvarchar('legacy_meta', { length: 'max' }),
   },
   (t) => [
     uniqueIndex('uq_file_object_uuid').on(t.fileUuid),
     index('ix_file_object_ref').on(t.refType, t.refNo),
+    index('ix_file_object_compat').on(t.compatNs, t.compatKey),
+    index('ix_file_object_compat_ref').on(t.compatNs, t.refNo),
     index('ix_file_object_created_at').on(t.createdAt),
     index('ix_file_object_backup').on(t.backupStatus),
   ],

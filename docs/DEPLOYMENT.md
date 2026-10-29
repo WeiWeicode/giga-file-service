@@ -41,6 +41,16 @@
 5. **畫面權限**:GigaItApp `deploy/gateway-rbac.yaml` 的 `it.gw-file.*`(PRD §8)隨 GigaItApp develop 部署套用。
 6. 上傳由 Nginx 直送 file-api(§4),單檔 30 MB。
 
+### 2.2 正式區第一次部署(主機 3)
+
+主機 3 的 WSL 查不到外部 DNS(Docker Hub、npmjs 不通),不在主機上建置:`main` 由 CI `build-prod` 在主機 2 建置並推送 Registry,`deploy-prod`(手動,`prod-deploy`)在主機 3 拉取後更新。
+
+1. **資料庫(本人,sa)**:執行 `file-api/db/dba/04-create-prod-schema.sql`,在正式庫 `giganexus_gw` 建 schema `file_svc` 與正式專用帳號 `file_prod_app` / `file_prod_migrate`(測試區帳號 `file_app` 不能進正式庫)。
+2. **主機 3(本人)**:`sudo sh /srv/giganexus/deploy/host3-set-file-db.sh`(本 repo `file-api/deploy/host3-set-file-db.sh`),寫入 `file_prod_app` 密碼、`file.env` 的 `FILE_DB_USER=file_prod_app`。其餘機密(`gw_api_key`、監控 Key、`bpm/`)與 `file.env`、`/srv/giga-files/prod`、NAS `giga-files/prod/` 已於 2026-10-29 就位。
+3. **migration(本人,開發機)**:在 `file-api/` 以 `FILE_DB_NAME=giganexus_gw`、`FILE_MIGRATE_USER=file_prod_migrate` 與其密碼執行 `npm run db:migrate`(密碼只在本次 shell,不寫進 `.env`)。
+4. **合併到 `main`**:`build-prod` 自動建置推送 → 手動執行 `deploy-prod`(`up --no-build --wait file-api`、`/readyz`、無 Token 回 401)。
+5. **發佈路由**:file-api 啟動後自動註冊為正式區 Gateway **草稿**,在 GigaItApp「服務與路由」審查後發佈。
+
 ## 3. 主機目錄與掛載
 
 | 路徑(WSL) | 模式 | 用途 |
@@ -72,19 +82,20 @@
 | 本服務 app / migrate 帳密(只授權 schema `file_svc`;測試與正式分開,比照 Gateway) | 資料庫 | 使用者執行腳本(隱藏輸入)建立 LOGIN 與授權、寫入主機機密檔 |
 | NAS 服務帳號 | cifs 掛載 credentials 檔(權限 600) | 同上 |
 | 166 唯讀帳號 | 166 同步 | 同上 |
-| NaNa 唯讀帳號 | BPM 附件查詢 | 同上 |
-| BPM 5144 `X-API-Key` | 取檔服務(**建議更換**,PRD §11 #8) | 同上;**只放 file-api** |
+| NaNa 唯讀帳號 `file_bpm_ro` | BPM 附件查詢(`db/dba/02-create-bpm-readonly.sql`) | `deploy/host2-set-bpm-secrets.sh test|prod` → `file-secrets/bpm/{test,prod}_db_password`(目錄唯讀掛載 `/run/secrets/bpm`;191 / 190 各一組) |
+| BPM 5144 `X-API-Key` | 取檔服務(**建議更換**,PRD §11 #8;目前沿用既有金鑰) | 同上 → `file-secrets/bpm/{test,prod}_file_api_key`;**只放 file-api** |
 
 - 不入版控、不寫進映像檔、不貼進對話或日誌;以 `<NAME>_FILE` 指向 Docker secret。
 - **AI 不開啟 `.env`、不讀取機密檔、不要求使用者貼帳密**(`AGENT.md` §7.2)。
 
 ## 6. 上線前檢查(每個部署區一次)
 
-- [ ] schema `file_svc` 與本服務帳號已建立(只授權 `file_svc`,試寫 `gw.*` 應失敗),migration 以 migrate 帳號套用、紀錄表在 `file_svc`
+- [ ] schema `file_svc` 與本服務帳號已建立(只授權 `file_svc`,試寫 `gw.*` 應失敗),migration 以 migrate 帳號套用、紀錄表在 `file_svc`(測試區 ✅ 2026-10-08)
 - [ ] port 51272 已登記、防火牆只開 Gateway 主機
-- [ ] `/srv/giga-files/{env}` 已建立、擁有者與容器使用者一致
-- [ ] NAS 掛載可寫 `giga-files/{env}/`,舊來源掛載為唯讀(試寫應失敗)
-- [ ] 機密檔皆就位,容器以 `*_FILE` 讀取
-- [ ] `/healthz` 200;自動註冊的路由在 Gateway 為草稿,審查後發佈
-- [ ] 上傳 30 MB 測試檔經 Nginx 直送成功,BFF 記憶體無明顯上升
-- [ ] NAS 補傳成功、SHA-256 相符;中斷 NAS 後恢復可自動補
+- [ ] `/srv/giga-files/{env}` 已建立、擁有者與容器使用者一致(測試區 ✅ 2026-10-08)
+- [ ] NAS 掛載可寫 `giga-files/{env}/`,舊來源掛載為唯讀(試寫應失敗)(測試區 ✅ 2026-10-08)
+- [ ] 機密檔皆就位,容器以 `*_FILE` 讀取(測試區 ✅ 2026-10-08)
+- [ ] `/healthz` 200;自動註冊的路由在 Gateway 為草稿,審查後發佈(測試區 ✅ 2026-10-08)
+- [ ] 上傳 30 MB 測試檔經 Nginx 直送成功,BFF 記憶體無明顯上升(測試區 ✅ 2026-10-08)
+- [ ] NAS 補傳成功、SHA-256 相符;中斷 NAS 後恢復可自動補(測試區 ✅ 2026-10-08)
+- [ ] BPM 來源:NaNa `file_bpm_ro` 只有 5 張表 SELECT(讀其他表被拒)、主機連得到 1433 / 5144、`?env=test|prod` 查詢與下載正常(測試區 ✅ 2026-10-08,191 / 190)

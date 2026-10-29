@@ -5,6 +5,7 @@
 import type { MultipartFile } from '@fastify/multipart';
 import type { FastifyPluginAsync, FastifyRequest } from 'fastify';
 import { AppError } from '../errors.js';
+import type { BackupService } from '../modules/backup/backup-service.js';
 import type { Actor, FileService, UploadFields, UploadPart } from '../modules/files/file-service.js';
 import type { FileRecord } from '../modules/files/types.js';
 
@@ -55,7 +56,12 @@ const view = (f: FileRecord) => ({
 
 const errorRef = (codes: string) => `錯誤:${codes}。`;
 
-export function fileRoutes(service: FileService, actorOf: (req: FastifyRequest) => Actor, maxFileBytes: number): FastifyPluginAsync {
+export function fileRoutes(
+  service: FileService,
+  actorOf: (req: FastifyRequest) => Actor,
+  maxFileBytes: number,
+  backup: BackupService | null = null,
+): FastifyPluginAsync {
   return async (app) => {
     app.post(
       '/v1/files',
@@ -290,7 +296,7 @@ export function fileRoutes(service: FileService, actorOf: (req: FastifyRequest) 
           operationId: 'file.storage.get',
           summary: '儲存與備份統計',
           description:
-            '檔案數、容量、暫存檔數、NAS 備份狀態(pending / done / failed)與最近失敗清單、磁碟容量(有主機磁碟目錄時以 Windows 主機磁碟為準,basis = host)。NAS 備份於 F2 實作前一律為 pending。',
+            '檔案數、容量、暫存檔數、NAS 備份狀態(pending / done / failed)與最近失敗清單、磁碟容量(有主機磁碟目錄時以 Windows 主機磁碟為準,basis = host)。backupEnabled 為 false 表示此環境未設定 NAS 備份(備份狀態維持 pending)。',
           tags: ['儲存'],
           'x-permission': 'file.storage.read',
           'x-gherkin': [
@@ -305,6 +311,7 @@ export function fileRoutes(service: FileService, actorOf: (req: FastifyRequest) 
               properties: {
                 files: { type: 'integer' },
                 bytes: { type: 'integer' },
+                backupEnabled: { type: 'boolean' },
                 temp: { type: 'integer' },
                 backup: { type: 'object', properties: { pending: { type: 'integer' }, done: { type: 'integer' }, failed: { type: 'integer' } } },
                 failedItems: {
@@ -331,7 +338,39 @@ export function fileRoutes(service: FileService, actorOf: (req: FastifyRequest) 
       },
       async () => {
         const s = await service.stats();
-        return { ...s, failedItems: s.failedItems.map((f) => ({ ...f, createdAt: f.createdAt.toISOString() })) };
+        return { ...s, backupEnabled: backup !== null, failedItems: s.failedItems.map((f) => ({ ...f, createdAt: f.createdAt.toISOString() })) };
+      },
+    );
+
+    app.post<{ Body: { fileUuids?: string[] } }>(
+      '/v1/storage/backup/retry',
+      {
+        schema: {
+          operationId: 'file.storage.backup.retry',
+          summary: '重試失敗的 NAS 備份',
+          description:
+            '將備份失敗(failed)的檔案改回待備份(pending)、失敗次數歸零,由下一輪排程補傳(STORAGE.md §2)。fileUuids 省略時重試全部失敗檔案。此環境未設定 NAS 備份時回 409 FILE_BACKUP_DISABLED。',
+          tags: ['儲存'],
+          'x-permission': 'file.storage.manage',
+          'x-audit-level': 'meta',
+          'x-gherkin': [
+            '場景: 重試失敗的備份',
+            '  假如 有 2 個檔案備份失敗',
+            '  當 呼叫 POST /api/file/storage/backup/retry,body 為 {}',
+            '  那麼 回應 200,retried 為 2,GET /api/file/storage 的 backup.failed 為 0、pending 為 2',
+          ].join('\n'),
+          body: {
+            type: 'object',
+            additionalProperties: false,
+            properties: { fileUuids: { type: 'array', minItems: 1, maxItems: 500, items: { type: 'string', pattern: UUID } } },
+          },
+          response: { 200: { type: 'object', properties: { retried: { type: 'integer' } } } },
+        },
+      },
+      async (req) => {
+        actorOf(req);
+        if (!backup) throw new AppError(409, 'FILE_BACKUP_DISABLED', '此環境未設定 NAS 備份');
+        return { retried: await backup.retry(req.body?.fileUuids ?? null) };
       },
     );
   };
