@@ -23,7 +23,8 @@ name: giganexus-file-${GW_ENV:?GW_ENV 必須設定(test / prod)}
 
 services:
   file-api:
-    image: giganexus/file-api:${IMAGE_TAG:-dev}
+    # 測試區在主機上建置(本機名稱);正式區 FILE_IMAGE_PREFIX=<GitLab Registry>/giganexus/giga-file-service,拉取 main 建置的映像檔
+    image: ${FILE_IMAGE_PREFIX:-giganexus}/file-api:${IMAGE_TAG:-dev}
     build:
       context: ..
       secrets: [npm_token]
@@ -80,7 +81,7 @@ services:
 
   legacy-import:
     profiles: [legacy-import]
-    image: giganexus/file-api:${IMAGE_TAG:-dev}
+    image: ${FILE_IMAGE_PREFIX:-giganexus}/file-api:${IMAGE_TAG:-dev}
     restart: 'no'
     entrypoint: ['node', 'dist/src/cli/legacy-import.js']
     working_dir: /app

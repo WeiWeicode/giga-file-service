@@ -41,6 +41,16 @@
 5. **畫面權限**:GigaItApp `deploy/gateway-rbac.yaml` 的 `it.gw-file.*`(PRD §8)隨 GigaItApp develop 部署套用。
 6. 上傳由 Nginx 直送 file-api(§4),單檔 30 MB。
 
+### 2.2 正式區第一次部署(主機 3)
+
+主機 3 的 WSL 查不到外部 DNS(Docker Hub、npmjs 不通),不在主機上建置:`main` 由 CI `build-prod` 在主機 2 建置並推送 Registry,`deploy-prod`(手動,`prod-deploy`)在主機 3 拉取後更新。
+
+1. **資料庫(本人,sa)**:執行 `file-api/db/dba/04-create-prod-schema.sql`,在正式庫 `giganexus_gw` 建 schema `file_svc` 與正式專用帳號 `file_prod_app` / `file_prod_migrate`(測試區帳號 `file_app` 不能進正式庫)。
+2. **主機 3(本人)**:`sudo sh /srv/giganexus/deploy/host3-set-file-db.sh`(本 repo `file-api/deploy/host3-set-file-db.sh`),寫入 `file_prod_app` 密碼、`file.env` 的 `FILE_DB_USER=file_prod_app`。其餘機密(`gw_api_key`、監控 Key、`bpm/`)與 `file.env`、`/srv/giga-files/prod`、NAS `giga-files/prod/` 已於 2026-10-29 就位。
+3. **migration(本人,開發機)**:在 `file-api/` 以 `FILE_DB_NAME=giganexus_gw`、`FILE_MIGRATE_USER=file_prod_migrate` 與其密碼執行 `npm run db:migrate`(密碼只在本次 shell,不寫進 `.env`)。
+4. **合併到 `main`**:`build-prod` 自動建置推送 → 手動執行 `deploy-prod`(`up --no-build --wait file-api`、`/readyz`、無 Token 回 401)。
+5. **發佈路由**:file-api 啟動後自動註冊為正式區 Gateway **草稿**,在 GigaItApp「服務與路由」審查後發佈。
+
 ## 3. 主機目錄與掛載
 
 | 路徑(WSL) | 模式 | 用途 |
