@@ -1,6 +1,6 @@
 # 專案地圖 — giga-file-service
 
-> **最後更新:2026-10-13**(F7 舊格式相容層 `src/compat/` + `modules/compat/`;F4 filebackend / SMBbackend 匯入 `cli/legacy-import.ts`;`file_object` 加 `compat_ns` / `compat_key` / `legacy_meta`)。前次 2026-10-08(F1:`file-api/` 建立——Fastify 5 + Drizzle(`giganexus_gw` schema `file_svc`)、檔案上傳 / 下載 / 綁定 / 軟刪除 / 暫存清除 / 儲存統計;F0:舊來源唯讀盤點 CLI;Dockerfile、Compose、CI。同日:文件組由 FILE-PLAN 拆分)。
+> **最後更新:2026-10-29**(正式區部署:CI `build-prod` / `deploy-prod`、`db/dba/04-create-prod-schema.sql`、`deploy/host3-set-file-db.sh`)。前次 2026-10-13(F7 舊格式相容層 `src/compat/` + `modules/compat/`;F4 filebackend / SMBbackend 匯入 `cli/legacy-import.ts`;`file_object` 加 `compat_ns` / `compat_key` / `legacy_meta`)。前次 2026-10-08(F1:`file-api/` 建立——Fastify 5 + Drizzle(`giganexus_gw` schema `file_svc`)、檔案上傳 / 下載 / 綁定 / 軟刪除 / 暫存清除 / 儲存統計;F0:舊來源唯讀盤點 CLI;Dockerfile、Compose、CI。同日:文件組由 FILE-PLAN 拆分)。
 > 開發新功能後,在同一個變更內更新本文件(`AGENT.md` §9.1)。只寫結構與職責,細節連到 `docs/` 對應章節。
 
 附件服務 `file-api`(:51272,系統代碼 `file`,`/api/file/*`):上傳 / 下載 / 清單 / 綁定 / 軟刪除、BPM 附件唯讀代理(F6)、舊格式相容層(F7)、WSL 存放 + NAS 備份(F2)、舊系統 UUID 對照與同步(F4)。畫面在 GigaItApp「Gateway 管理 › 檔案管理」。
@@ -43,10 +43,10 @@ giga-file-service/
    │                          sql2012-guard.ts(Gateway 複本)
    ├─ db/migrations/          drizzle-kit 產生、人工審查(不可修改已套用的)
    ├─ db/dba/                 01-create-schema.sql(使用者以 sa 執行:schema file_svc、file_app / file_migrate)、02 NaNa 唯讀、
-   │                          03-create-webappdb-readonly.sql(WebAppDb 唯讀 file_legacy_ro)
+   │                          03-create-webappdb-readonly.sql(WebAppDb 唯讀 file_legacy_ro)、04-create-prod-schema.sql(正式庫 file_prod_app / file_prod_migrate)
    ├─ scripts/check-sql2012.ts
    ├─ test/                   files / units / inventory / compat / legacy-import(單元)、int/(SQL Server 2012)、legacy/(真實舊來源唯讀)、helpers.ts
-   ├─ deploy/                 docker-compose.yml(測試區,加入 Gateway 網路;NAS 唯讀掛 /data/legacy)、test.env.example、host2-set-secrets.sh、
+   ├─ deploy/                 docker-compose.yml(測試區,加入 Gateway 網路;NAS 唯讀掛 /data/legacy)、test.env.example、host2-set-secrets.sh、host3-set-file-db.sh(正式區 DB 帳號)、
    │                          host2-set-bpm-secrets.sh、host2-set-legacy-secrets.sh、host2-mount-nas.sh
    ├─ Dockerfile、.env.example、drizzle.config.ts、package.json(gateway.project = giga-file-service)
    └─ data/                   本機執行期資料(檔案根目錄、盤點報告;不進版控)
