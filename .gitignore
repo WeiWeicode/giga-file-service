@@ -17,3 +17,6 @@ secrets/
 node_modules/
 dist/
 coverage/
+
+# CodeGraph 本機索引
+.codegraph/
