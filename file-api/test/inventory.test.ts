@@ -1,8 +1,9 @@
 /** 舊來源唯讀盤點(docs/Gherkin/legacy/inventory.feature):以暫存目錄模擬來源,不碰真正的 166 / NAS */
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, readdirSync, statSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { mkTmp } from './helpers.js';
 import { describe, it } from 'node:test';
 import { scanSource, toMarkdown } from '../src/modules/legacy/inventory.js';
 import { nodeReadonlyFs, type ReadonlyFs } from '../src/modules/legacy/readonly-source.js';
@@ -12,7 +13,7 @@ const U2 = '0b7ee185-acd3-42ca-aed5-a8a43cbae31e';
 
 /** 模擬 NAS docker-folder:BPM / OTHER 為 UUID 檔名、CRM 為空目錄、CP 為中文原檔名 */
 function fakeNas(): string {
-  const root = mkdtempSync(path.join(tmpdir(), 'legacy-'));
+  const root = mkTmp('legacy-');
   const w = (rel: string, content: string) => {
     mkdirSync(path.dirname(path.join(root, rel)), { recursive: true });
     writeFileSync(path.join(root, rel), content);
@@ -92,7 +93,7 @@ describe('舊來源唯讀盤點(inventory.feature)', () => {
   });
 
   it('盤點 166 PortalSolar 只掃資料目錄', async () => {
-    const root = mkdtempSync(path.join(tmpdir(), 'portal-'));
+    const root = mkTmp('portal-');
     mkdirSync(path.join(root, 'EHS', 'License'), { recursive: true });
     mkdirSync(path.join(root, 'Bin'));
     writeFileSync(path.join(root, 'EHS', 'License', '證照.pdf'), 'x');

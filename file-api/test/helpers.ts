@@ -2,7 +2,7 @@
  * 測試共用:記憶體版 FileRepo(單元測試;SQL Server 版由 test/int 驗證)、測試用 JWKS 與 Token、multipart 請求、暫存檔案根目錄。
  * 一律使用假檔案與暫存目錄(AGENT.md §9),不碰 166 / NAS / 正式資料。
  */
-import { mkdtempSync, readdirSync, statSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
@@ -323,11 +323,27 @@ export interface TestBpmOptions {
   env?: 'test' | 'prod';
 }
 
+const tmpDirs = new Set<string>();
+
+/** 清掉本程序以 mkTmp 建立的所有暫存目錄(測試成功、失敗、例外結束都會執行,避免在 CI 主機 /tmp 累積) */
+export function cleanupTmp(): void {
+  for (const d of tmpDirs) rmSync(d, { recursive: true, force: true });
+  tmpDirs.clear();
+}
+process.on('exit', cleanupTmp);
+
+/** 建立暫存目錄並登記,程序結束時一定刪除;測試一律用它取代 mkdtempSync */
+export function mkTmp(prefix: string): string {
+  const d = mkdtempSync(path.join(tmpdir(), prefix));
+  tmpDirs.add(d);
+  return d;
+}
+
 export async function buildTestApp(
   jwks: Jwks,
   opts: { repo?: FileRepo; config?: Partial<Config>; backup?: TestBackupOptions; bpm?: TestBpmOptions | TestBpmOptions[]; compat?: boolean | CompatRepo } = {},
 ): Promise<TestApp> {
-  const root = mkdtempSync(path.join(tmpdir(), 'file-api-'));
+  const root = mkTmp('file-api-');
   const config = { ...testConfig(jwks.url, root), ...opts.config };
   const store = new LocalStore(root);
   await store.init();
@@ -335,7 +351,7 @@ export async function buildTestApp(
   const repo = opts.repo ?? new MemoryFileRepo();
   let backup: TestApp['backup'] = null;
   if (opts.backup) {
-    const nasRoot = mkdtempSync(path.join(tmpdir(), 'file-nas-'));
+    const nasRoot = mkTmp('file-nas-');
     if (opts.backup.marker !== false) writeFileSync(path.join(nasRoot, MARKER), '');
     const nas = new BackupStore(nasRoot);
     const alerts: Parameters<BackupAlert>[0][] = [];

@@ -4,14 +4,13 @@
  */
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { mkdirSync, mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { after, before, beforeEach, describe, it } from 'node:test';
 import { FB_SPEC_DIRS, legacyRel, runImport, taipeiDate, type ImportSourceSpec } from '../src/modules/legacy/legacy-import.js';
 import { ReadonlySource } from '../src/modules/legacy/readonly-source.js';
 import type { LegacyRow } from '../src/modules/legacy/webappdb.js';
-import { buildTestApp, EXE, listStored, MemoryFileRepo, PDF, PNG, startJwks, type Jwks, type TestApp } from './helpers.js';
+import { buildTestApp, EXE, listStored, MemoryFileRepo, PDF, PNG, startJwks, type Jwks, type TestApp, mkTmp } from './helpers.js';
 
 const sha = (b: Buffer) => createHash('sha256').update(b).digest('hex');
 
@@ -70,7 +69,7 @@ before(async () => {
 after(() => jwks.close());
 beforeEach(async () => {
   t = await buildTestApp(jwks, { compat: true });
-  nasRoot = mkdtempSync(path.join(tmpdir(), 'file-legacy-nas-'));
+  nasRoot = mkTmp('file-legacy-nas-');
 });
 
 describe('路徑與時間', () => {

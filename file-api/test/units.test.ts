@@ -1,6 +1,6 @@
 /** 純函式與元件:檔案類型、Content-Disposition、LocalStore、設定(AGENT.md §6、§7.3) */
 import assert from 'node:assert/strict';
-import { mkdtempSync, readdirSync } from 'node:fs';
+import { readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { Readable } from 'node:stream';
@@ -9,7 +9,7 @@ import { ConfigError, loadConfig } from '../src/config.js';
 import { checkFileType, contentDisposition, sanitizeOriginalName } from '../src/modules/files/file-types.js';
 import { withSep } from '../src/modules/legacy/readonly-source.js';
 import { LocalStore, PathEscapeError } from '../src/modules/storage/local-store.js';
-import { EXE, PDF, PNG, SVG, ZIP } from './helpers.js';
+import { EXE, PDF, PNG, SVG, ZIP, mkTmp } from './helpers.js';
 
 describe('檔案類型(SECURITY-CHECKLIST S9)', () => {
   it('副檔名與檔頭相符才通過', () => {
@@ -50,7 +50,7 @@ describe('檔案類型(SECURITY-CHECKLIST S9)', () => {
 });
 
 describe('LocalStore(STORAGE.md §1)', () => {
-  const root = () => mkdtempSync(path.join(tmpdir(), 'store-'));
+  const root = () => mkTmp('store-');
   it('storage_key 不可逃出根目錄,也不可指向 tmp', () => {
     const s = new LocalStore(root());
     assert.throws(() => s.resolveKey('../x'), PathEscapeError);
