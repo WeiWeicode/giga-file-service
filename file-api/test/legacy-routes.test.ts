@@ -3,14 +3,13 @@
  * 以 F4 匯入工具把暫存目錄模擬的 NAS 檔匯入記憶體 repo,再經 API 查詢與下載。
  */
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { after, before, beforeEach, describe, it } from 'node:test';
 import { runImport, type ImportSourceSpec } from '../src/modules/legacy/legacy-import.js';
 import { ReadonlySource } from '../src/modules/legacy/readonly-source.js';
 import type { LegacyRow } from '../src/modules/legacy/webappdb.js';
-import { buildTestApp, PDF, PNG, startJwks, user, type Jwks, type TestApp } from './helpers.js';
+import { buildTestApp, PDF, PNG, startJwks, user, type Jwks, type TestApp, mkTmp } from './helpers.js';
 
 let jwks: Jwks;
 let t: TestApp;
@@ -57,7 +56,7 @@ after(() => jwks.close());
 beforeEach(async () => {
   t = await buildTestApp(jwks, { compat: true });
   auth = { 'x-internal-token': await jwks.sign(user('S112009')) };
-  nas = mkdtempSync(path.join(tmpdir(), 'file-legacy-routes-'));
+  nas = mkTmp('file-legacy-routes-');
   mkdirSync(path.join(nas, 'CP'));
   writeFileSync(path.join(nas, 'CP', '電子發票設定.pdf'), PDF);
   writeFileSync(path.join(nas, 'CP', 'b.png'), PNG);
